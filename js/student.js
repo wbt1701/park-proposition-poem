@@ -259,12 +259,13 @@
     try {
       status.textContent = "사진 크기를 줄이는 중…";
       const blob = await App.compressImage(file, 1280, 0.82);
+      const thumb = await App.compressImage(file, App.THUMB_WIDTH, 0.75); // 갤러리 목록용 작은 사진
       status.textContent = `올리는 중… (${Math.round(blob.size / 1024)}KB)`;
       const path = `${state.user.id}/${Date.now()}.jpg`;
-      const { error } = await sb.storage
-        .from("photos")
-        .upload(path, blob, { contentType: "image/jpeg", cacheControl: "3600", upsert: false });
+      const opts = { contentType: "image/jpeg", cacheControl: "3600", upsert: false };
+      const { error } = await sb.storage.from("photos").upload(path, blob, opts);
       if (error) throw error;
+      await sb.storage.from("photos").upload(App.thumbPath(path), thumb, opts); // 실패해도 목록에서 원본으로 대신 보여 줌
       state.draft.photoUrl = sb.storage.from("photos").getPublicUrl(path).data.publicUrl;
       saveDraft();
       renderPhoto();
@@ -387,7 +388,7 @@
   // ---------------------------------------------------------------- 갤러리
   async function loadList() {
     const [listRes, likeRes] = await Promise.all([
-      sb.from("post_list").select("id,user_id,title,hidden,created_at,like_count"),
+      sb.from("post_list").select("id,user_id,title,hidden,created_at,like_count,photo_url"),
       sb.from("likes").select("post_id").eq("user_id", state.user.id),
     ]);
     if (listRes.error) return toast(friendlyError(listRes.error), true);
@@ -423,6 +424,7 @@
       ul.append(
         h("li", {},
           h("button", { type: "button", class: "poem-item" + (mine ? " mine" : ""), onclick: () => go("post/" + p.id) },
+            h("span", { class: "thumb" }, p.photo_url ? App.thumbImg(p.photo_url, p.title + " 사진") : "🌳"),
             h("span", { class: "info" },
               h("span", { class: "title" }, p.title),
               h("span", { class: "meta" },

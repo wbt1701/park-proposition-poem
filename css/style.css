@@ -179,7 +179,7 @@ input.invalid, textarea.invalid { border-color: var(--danger); background: var(-
 .photo-box.has-photo { border-style: solid; padding: 0; }
 .photo-box img { display: block; width: 100%; max-height: 420px; object-fit: contain; background: #000; }
 .photo-buttons { display: flex; gap: 10px; }
-.photo-buttons label.btn { flex: 1; }
+.photo-buttons label.btn { flex: 1; padding: 0 8px; font-size: 1rem; white-space: nowrap; }
 .photo-buttons input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .status-line { font-weight: 800; color: var(--green-dark); margin-top: 8px; min-height: 1.6em; }
 
@@ -258,6 +258,18 @@ details.fold .fold-body { padding: 0 16px 16px; }
 .poem-item:active { background: var(--green-soft); }
 .poem-item.mine { border-color: var(--yellow-line); background: #fffbea; }
 .poem-item .info { flex: 1; min-width: 0; }
+.poem-item .thumb {
+  flex: 0 0 88px;
+  height: 88px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--green-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+}
+.poem-item .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .poem-item .title { font-size: 1.15rem; font-weight: 900; display: block; }
 .poem-item .meta { font-size: 0.85rem; font-weight: 700; color: var(--muted); }
 .poem-item .likes { font-weight: 900; color: var(--green-dark); white-space: nowrap; font-size: 1.05rem; }
@@ -337,6 +349,19 @@ dialog.detail .dlg-body { padding: 18px; }
 .kv { display: grid; grid-template-columns: 110px 1fr; gap: 8px 12px; margin: 0 0 16px; }
 .kv dt { font-weight: 900; color: var(--green-dark); }
 .kv dd { margin: 0; font-weight: 600; white-space: pre-wrap; }
+/* 학생별 PDF: 화면 밖에서 A4 너비로 그린 뒤 이미지로 변환 */
+.pdf-holder { position: fixed; left: -10000px; top: 0; }
+.pdf-sheet { width: 720px; padding: 8px; background: #fff; color: #111; font-family: var(--font); line-height: 1.6; }
+.pdf-head { font-size: 13px; font-weight: 800; color: var(--green); border-bottom: 3px solid var(--green); padding-bottom: 6px; }
+.pdf-who { display: flex; justify-content: space-between; font-size: 16px; font-weight: 800; margin: 10px 0 14px; }
+.pdf-who span { font-size: 13px; font-weight: 600; color: #555; }
+.pdf-photo { text-align: center; margin-bottom: 16px; }
+.pdf-photo img { max-width: 100%; max-height: 340px; border-radius: 10px; }
+.pdf-sheet h1 { font-size: 26px; margin: 0 0 10px; }
+.pdf-poem { white-space: pre-wrap; font-size: 17px; line-height: 1.9; margin: 0 0 18px; padding: 14px 16px; background: #f6f8f2; border-radius: 10px; }
+.pdf-notes { width: 100%; border-collapse: collapse; font-size: 14px; }
+.pdf-notes th, .pdf-notes td { border: 1px solid #c9d3c4; padding: 6px 10px; text-align: left; vertical-align: top; white-space: pre-wrap; }
+.pdf-notes th { width: 110px; background: var(--green-soft); }
 @media (max-width: 520px) {
   .kv { grid-template-columns: 1fr; }
   .kv dd { margin-bottom: 6px; }

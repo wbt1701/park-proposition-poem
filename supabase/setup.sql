@@ -362,7 +362,8 @@ select p.id,
        p.hidden,
        p.created_at,
        p.updated_at,
-       (select count(*) from public.likes l where l.post_id = p.id)::int as like_count
+       (select count(*) from public.likes l where l.post_id = p.id)::int as like_count,
+       p.photo_url
   from public.posts p;
 
 revoke all on public.post_list from anon;

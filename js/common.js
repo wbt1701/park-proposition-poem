@@ -156,6 +156,19 @@
     });
   };
 
+  // 갤러리 목록용 작은 사진: 원본 "<uid>/123.jpg" 옆에 "<uid>/123_thumb.jpg"
+  App.THUMB_WIDTH = 480;
+  App.thumbPath = (path) => path.replace(/\.jpg$/, "_thumb.jpg");
+
+  // 목록 사진: 작은 사진을 먼저, 없으면 원본으로
+  App.thumbImg = function (url, alt) {
+    const img = App.h("img", { src: App.thumbPath(url), alt: alt || "", loading: "lazy", decoding: "async" });
+    img.addEventListener("error", () => {
+      if (img.src !== url) img.src = url;
+    }, { once: true });
+    return img;
+  };
+
   // 공개 사진 주소 → 버킷 안 경로 ("<uid>/123.jpg")
   App.photoPathFromUrl = function (url) {
     const m = /\/storage\/v1\/object\/public\/photos\/(.+)$/.exec(url || "");

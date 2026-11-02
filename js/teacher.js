@@ -121,7 +121,7 @@
     const tbody = $("#rows");
     tbody.replaceChildren();
     if (!state.rows.length) {
-      tbody.append(h("tr", {}, h("td", { colspan: "7", class: "empty-state" }, "아직 제출된 시가 없습니다.")));
+      tbody.append(h("tr", {}, h("td", { colspan: "8", class: "empty-state" }, "아직 제출된 시가 없습니다.")));
     }
     for (const r of sorted()) {
       tbody.append(
@@ -133,7 +133,15 @@
           h("td", {}, h("span", { class: "badge " + (r.is_true ? "true" : "false") }, r.is_true ? "참" : "거짓")),
           h("td", {}, "♥ " + r.like_count),
           h("td", {}, fmtFull(r.created_at)),
-          h("td", {}, r.hidden ? h("span", { class: "badge gray" }, "숨김") : "공개")));
+          h("td", {}, r.hidden ? h("span", { class: "badge gray" }, "숨김") : "공개"),
+          h("td", {}, h("button", {
+            type: "button", class: "btn btn-small",
+            onclick: (e) => {
+              e.stopPropagation(); // 행 클릭(상세 열기)과 구분
+              downloadPdf(r, e.currentTarget);
+            },
+            onkeydown: (e) => e.stopPropagation(),
+          }, "PDF"))));
     }
 
     $("#pending-summary").textContent = `입장했지만 아직 제출하지 않은 학생 (${state.pending.length}명)`;
@@ -171,6 +179,7 @@
         h("h3", {}, r.title),
         h("p", { class: "poem-body" }, r.body)),
       h("div", { class: "btn-row" },
+        h("button", { type: "button", class: "btn btn-accent", onclick: (e) => downloadPdf(r, e.currentTarget) }, "PDF로 저장"),
         h("button", { type: "button", class: "btn", onclick: () => setHidden(r, !r.hidden) },
           r.hidden ? "다시 보이기" : "숨기기"),
         h("button", { type: "button", class: "btn btn-danger", onclick: () => removePost(r) }, "삭제"))
@@ -193,11 +202,86 @@
     const { error } = await sb.from("posts").delete().eq("id", r.id);
     if (error) return toast("삭제 실패: " + error.message, true);
     const path = App.photoPathFromUrl(r.photo_url);
-    if (path) await sb.storage.from("photos").remove([path]);
+    if (path) await sb.storage.from("photos").remove([path, App.thumbPath(path)]);
     $("#detail").close();
     state.openId = null;
     toast("삭제했습니다.");
     await load();
+  }
+
+  // ---------------------------------------------------------------- 학생별 PDF (사진 포함)
+  const PDF_LIB = "https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.3/dist/html2pdf.bundle.min.js";
+  let pdfLibPromise = null;
+  function loadPdfLib() {
+    if (window.html2pdf) return Promise.resolve();
+    pdfLibPromise = pdfLibPromise || new Promise((resolve, reject) => {
+      const s = h("script", { src: PDF_LIB });
+      s.onload = resolve;
+      s.onerror = () => {
+        pdfLibPromise = null;
+        reject(new Error("PDF 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요."));
+      };
+      document.head.append(s);
+    });
+    return pdfLibPromise;
+  }
+
+  function loadImage(src) {
+    return new Promise((resolve) => {
+      const img = h("img", { crossorigin: "anonymous", alt: "" });
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+
+  async function downloadPdf(r, btn) {
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "PDF 만드는 중…";
+    try {
+      await loadPdfLib();
+      const photo = r.photo_url ? await loadImage(r.photo_url) : null;
+      const row = (k, v) => h("tr", {}, h("th", {}, k), h("td", {}, v));
+      const sheet = h("div", { class: "pdf-sheet" },
+        h("div", { class: "pdf-head" }, "공원에서 쓰는 명제 시"),
+        h("div", { class: "pdf-who" }, `${r.student_id} ${r.name}`, h("span", {}, "제출 " + fmtFull(r.created_at))),
+        photo ? h("div", { class: "pdf-photo" }, photo) : null,
+        h("h1", {}, r.title),
+        h("p", { class: "pdf-poem" }, r.body),
+        h("table", { class: "pdf-notes" },
+          row("p", r.p),
+          row("q", r.q),
+          row("원래 명제", `${r.original}  (${r.is_true ? "참" : "거짓"})`),
+          row(r.is_true ? "참인 이유" : "반례", r.reason_or_counterexample),
+          row("역", r.converse),
+          row("대우", r.contrapositive),
+          row("사용한 문장", r.used_sentences.map((k) => App.SENTENCE_LABELS[k] || k).join(", ")),
+          row("좋아요", String(r.like_count))));
+      const holder = h("div", { class: "pdf-holder" }, sheet);
+      document.body.append(holder);
+      const safe = (s) => String(s).replace(/[\\/:*?"<>|\s]+/g, "_").slice(0, 40);
+      try {
+        await window.html2pdf()
+          .set({
+            margin: 10,
+            filename: `${r.student_id}_${safe(r.name)}_${safe(r.title)}.pdf`,
+            image: { type: "jpeg", quality: 0.92 },
+            html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+            pagebreak: { mode: ["css", "legacy"], avoid: ["tr", ".pdf-photo", "h1"] },
+          })
+          .from(sheet)
+          .save();
+      } finally {
+        holder.remove();
+      }
+    } catch (error) {
+      toast("PDF 저장 실패: " + (error.message || error), true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+    }
   }
 
   // ---------------------------------------------------------------- CSV
@@ -209,14 +293,14 @@
 
   function downloadCsv() {
     const header = ["학번", "이름", "시 제목", "시 본문", "p", "q", "원래 명제", "참·거짓", "이유 또는 반례",
-                    "역", "대우", "사용한 문장", "좋아요", "숨김", "사진 주소", "제출 시각", "수정 시각"];
+                    "역", "대우", "사용한 문장", "좋아요", "숨김", "제출 시각", "수정 시각"];
     const lines = [header.map(csvCell).join(",")];
     for (const r of sorted()) {
       lines.push([
         r.student_id, r.name, r.title, r.body, r.p, r.q, r.original, r.is_true ? "참" : "거짓",
         r.reason_or_counterexample, r.converse, r.contrapositive,
         r.used_sentences.map((k) => App.SENTENCE_LABELS[k] || k).join(" / "),
-        r.like_count, r.hidden ? "숨김" : "", r.photo_url || "",
+        r.like_count, r.hidden ? "숨김" : "",
         new Date(r.created_at).toLocaleString("ko-KR"), new Date(r.updated_at).toLocaleString("ko-KR"),
       ].map(csvCell).join(","));
     }
