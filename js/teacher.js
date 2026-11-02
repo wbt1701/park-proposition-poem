@@ -2,7 +2,7 @@
 (function () {
   const { $, $$, h, toast } = App;
   let sb = null;
-  const state = { rows: [], pending: [], locations: [], assignments: [], sort: "sid", openId: null };
+  const state = { rows: [], pending: [], locations: [], assignments: [], sort: "sid", classFilter: "", openId: null };
 
   function show(view) {
     $("#view-login").hidden = view !== "login";
@@ -106,12 +106,26 @@
     state.pending = authorsRes.data
       .filter((a) => !posted.has(a.user_id))
       .sort((a, b) => a.student_id.localeCompare(b.student_id));
+    renderClassFilter(authorsRes.data);
     render();
     if (state.openId) openDetail(state.openId, true);
   }
 
+  // 반 = 학번 앞 3자리 (학생 갤러리도 같은 기준으로 반별로 나뉨)
+  const classOf = (sid) => (sid || "").slice(0, 3);
+  const classLabel = (c) => (/^\d{3}$/.test(c) ? `${c[0]}학년 ${Number(c.slice(1))}반` : c);
+  const inClass = (sid) => !state.classFilter || classOf(sid) === state.classFilter;
+
+  function renderClassFilter(authors) {
+    const sel = $("#class-filter");
+    const classes = [...new Set(authors.map((a) => classOf(a.student_id)).filter(Boolean))].sort();
+    if (state.classFilter && !classes.includes(state.classFilter)) classes.push(state.classFilter);
+    sel.replaceChildren(h("option", { value: "" }, "전체 반"),
+      classes.map((c) => h("option", { value: c, selected: c === state.classFilter }, classLabel(c))));
+  }
+
   function sorted() {
-    const rows = state.rows.slice();
+    const rows = state.rows.filter((r) => inClass(r.student_id));
     const bySid = (a, b) => (a.student_id || "99999").localeCompare(b.student_id || "99999");
     if (state.sort === "likes") rows.sort((a, b) => b.like_count - a.like_count || bySid(a, b));
     else if (state.sort === "time") rows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
@@ -220,16 +234,18 @@
 
   function render() {
     $$("[data-sort]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.sort === state.sort)));
-    const hiddenCount = state.rows.filter((r) => r.hidden).length;
+    const rows = sorted();
+    const pending = state.pending.filter((a) => inClass(a.student_id));
+    const hiddenCount = rows.filter((r) => r.hidden).length;
     $("#stats").textContent =
-      `제출 ${state.rows.length}편` + (hiddenCount ? ` (숨김 ${hiddenCount})` : "") + ` · 미제출 ${state.pending.length}명`;
+      `제출 ${rows.length}편` + (hiddenCount ? ` (숨김 ${hiddenCount})` : "") + ` · 미제출 ${pending.length}명`;
 
     const tbody = $("#rows");
     tbody.replaceChildren();
-    if (!state.rows.length) {
+    if (!rows.length) {
       tbody.append(h("tr", {}, h("td", { colspan: "14", class: "empty-state" }, "아직 제출된 시가 없습니다.")));
     }
-    for (const r of sorted()) {
+    for (const r of rows) {
       tbody.append(
         h("tr", { class: r.hidden ? "is-hidden" : "", tabindex: "0", onclick: () => openDetail(r.id),
                   onkeydown: (e) => e.key === "Enter" && openDetail(r.id) },
@@ -260,9 +276,9 @@
           }, "PDF"))));
     }
 
-    $("#pending-summary").textContent = `입장했지만 아직 제출하지 않은 학생 (${state.pending.length}명)`;
-    $("#pending-list").textContent = state.pending.length
-      ? state.pending.map((a) => `${a.student_id} ${a.name}`).join(", ")
+    $("#pending-summary").textContent = `입장했지만 아직 제출하지 않은 학생 (${pending.length}명)`;
+    $("#pending-list").textContent = pending.length
+      ? pending.map((a) => `${a.student_id} ${a.name}`).join(", ")
       : "없음";
   }
 
@@ -429,7 +445,7 @@
     }
     // UTF-8 BOM(﻿) → 엑셀에서 한글이 깨지지 않음
     const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
-    const a = h("a", { href: URL.createObjectURL(blob), download: `명제시_제출목록_${new Date().toISOString().slice(0, 10)}.csv` });
+    const a = h("a", { href: URL.createObjectURL(blob), download: `명제시_${state.classFilter ? state.classFilter + "반_" : ""}제출목록_${new Date().toISOString().slice(0, 10)}.csv` });
     document.body.append(a);
     a.click();
     a.remove();
@@ -468,6 +484,10 @@
       })
     );
     $("#csv-btn").addEventListener("click", downloadCsv);
+    $("#class-filter").addEventListener("change", (e) => {
+      state.classFilter = e.target.value;
+      render();
+    });
     $$("[data-tab]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
     $("#dlg-close").addEventListener("click", () => $("#detail").close());
     $("#detail").addEventListener("close", () => (state.openId = null));

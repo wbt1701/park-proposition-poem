@@ -421,7 +421,12 @@
     if (!skipLoad) await loadList();
     $$(".sort-bar [data-sort]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.sort === state.sort)));
     const visible = state.list.filter((p) => !p.hidden);
-    $("#gallery-count").textContent = `지금까지 ${visible.length}편이 공유되었어요.`;
+    // 서버(RLS)가 같은 반(학번 앞 3자리) 글만 돌려줌. 제목만 반 이름으로
+    const sid = (state.profile && state.profile.sid) || "";
+    $("#gallery-title").textContent = /^\d{5}$/.test(sid)
+      ? `🌳 ${sid[0]}학년 ${Number(sid.slice(1, 3))}반 명제 시`
+      : "🌳 우리 반 명제 시";
+    $("#gallery-count").textContent = `우리 반에서 지금까지 ${visible.length}편이 공유되었어요.`;
 
     const ul = $("#poem-list");
     ul.replaceChildren();
@@ -583,8 +588,8 @@
     box.replaceChildren(
       h("div", { class: "success-screen" },
         h("p", { class: "big" }, "🎉 보물 획득 성공!"),
-        h("div", { class: "sid-label" }, "학번 끝 두 자리"),
-        h("div", { class: "sid" }, data.sid_tail || (state.profile && state.profile.sid.slice(-2)) || "--"),
+        h("div", { class: "sid" }, data.student_id || (state.profile && state.profile.sid) || "-----"),
+        h("div", { class: "who-name" }, data.name || (state.profile && state.profile.name) || ""),
         h("div", { class: "time" }, `획득 시각 ${t.getMonth() + 1}월 ${t.getDate()}일 ${pad(t.getHours())}:${pad(t.getMinutes())}`),
         h("div", { class: "show-teacher" }, "이 화면을 선생님께 보여 주세요")));
   }
