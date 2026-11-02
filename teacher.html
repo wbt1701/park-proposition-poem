@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#3d6b45" />
+  <meta name="robots" content="noindex" />
+  <title>교사용 · 공원에서 쓰는 명제 시</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%B3%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="teacher">
+  <header class="app-header">
+    <h1>공원에서 쓰는 명제 시</h1>
+    <div class="sub">교사용 화면</div>
+  </header>
+
+  <main>
+    <div class="setup-warning" id="setup-warning" hidden></div>
+
+    <!-- 로그인 -->
+    <section id="view-login" hidden>
+      <form class="card login-card" id="login-form" novalidate>
+        <h3>교사 로그인</h3>
+        <div class="field">
+          <label class="field-label" for="login-email">이메일</label>
+          <input id="login-email" type="email" autocomplete="username" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="login-password">비밀번호</label>
+          <input id="login-password" type="password" autocomplete="current-password" />
+        </div>
+        <div class="error-box" id="login-error" hidden></div>
+        <button class="btn btn-primary btn-block" id="login-submit" type="submit">로그인</button>
+      </form>
+    </section>
+
+    <!-- 제출 목록 -->
+    <section id="view-main" hidden>
+      <div class="toolbar">
+        <span class="stats"><span class="live-dot" id="live-dot"></span><span id="stats"></span></span>
+        <span class="spacer"></span>
+        <span class="hint">정렬</span>
+        <button class="btn btn-small" type="button" data-sort="sid" aria-pressed="true">학번순</button>
+        <button class="btn btn-small" type="button" data-sort="likes" aria-pressed="false">좋아요순</button>
+        <button class="btn btn-small" type="button" data-sort="time" aria-pressed="false">제출 시각순</button>
+        <button class="btn btn-small btn-accent" type="button" id="csv-btn">CSV 다운로드</button>
+        <button class="btn btn-small" type="button" id="logout-btn">로그아웃</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="subs">
+          <thead>
+            <tr>
+              <th>학번</th><th>이름</th><th>시 제목</th><th>참·거짓</th><th>좋아요</th><th>제출 시각</th><th>상태</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+
+      <details class="fold" style="margin-top:16px" id="pending-wrap">
+        <summary id="pending-summary">입장했지만 아직 제출하지 않은 학생</summary>
+        <div class="fold-body"><p id="pending-list" style="margin:0;font-weight:700"></p></div>
+      </details>
+    </section>
+  </main>
+
+  <dialog class="detail" id="detail">
+    <div class="dlg-head">
+      <h2 id="dlg-title"></h2>
+      <button class="btn btn-small" type="button" id="dlg-close" aria-label="닫기">닫기 ✕</button>
+    </div>
+    <div class="dlg-body" id="dlg-body"></div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.89.0/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/teacher.js"></script>
+</body>
+</html>

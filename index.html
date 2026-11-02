@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#3d6b45" />
+  <title>공원에서 쓰는 명제 시</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%B3%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>공원에서 쓰는 명제 시</h1>
+    <ol class="progress" id="progress" hidden aria-label="진행 단계">
+      <li data-step="step1">1 명제 만들기</li>
+      <li data-step="step2">2 역·대우</li>
+      <li data-step="step3">3 시 쓰기</li>
+    </ol>
+  </header>
+
+  <main>
+    <div class="setup-warning" id="setup-warning" hidden></div>
+
+    <!-- 불러오는 중 -->
+    <section id="screen-loading">
+      <p class="empty-state">불러오는 중…</p>
+    </section>
+
+    <!-- 0. 입장 -->
+    <section id="screen-entry" hidden>
+      <h2 class="screen-title">입장하기</h2>
+      <p class="lead">학번과 이름을 넣고 시작하세요. 친구들에게는 이름이 보이지 않고 <b>익명</b>으로 공유돼요.</p>
+      <form class="card" id="entry-form" novalidate>
+        <div class="field">
+          <label class="field-label" for="entry-sid">학번 <span class="hint">5자리 숫자 · 예) 10305</span></label>
+          <input id="entry-sid" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" autocomplete="off" placeholder="10305" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="entry-name">이름</label>
+          <input id="entry-name" type="text" maxlength="20" autocomplete="off" placeholder="이름" />
+        </div>
+        <div class="error-box" id="entry-error" hidden></div>
+        <button class="btn btn-primary btn-block" id="entry-submit" type="submit">시작하기</button>
+      </form>
+    </section>
+
+    <!-- 다시 들어온 학생 -->
+    <section id="screen-welcome" hidden>
+      <h2 class="screen-title">다시 왔어요! 🌳</h2>
+      <p class="lead" id="welcome-who"></p>
+      <div class="card soft">
+        <p style="margin:0 0 12px;font-weight:800">이미 시를 공유했어요. 무엇을 할까요?</p>
+        <div style="display:grid;gap:10px">
+          <button class="btn btn-accent btn-block" id="welcome-view" type="button">내가 쓴 시 보기</button>
+          <button class="btn btn-block" id="welcome-edit" type="button">내 시 고치기</button>
+          <button class="btn btn-primary btn-block" id="welcome-gallery" type="button">친구들 시 보러 가기</button>
+        </div>
+      </div>
+      <button class="link-btn" id="welcome-switch" type="button">다른 학번으로 입장하기</button>
+    </section>
+
+    <!-- 1단계 -->
+    <section id="screen-step1" hidden>
+      <h2 class="screen-title">1단계 · 공원에서 명제 만들기</h2>
+      <div class="card">
+        <h3>📷 공원에서 발견한 것</h3>
+        <div class="photo-box" id="photo-box">사진을 찍거나 앨범에서 골라 주세요</div>
+        <div class="photo-buttons">
+          <label class="btn btn-primary">
+            사진 찍기
+            <input type="file" accept="image/*" capture="environment" id="photo-camera" />
+          </label>
+          <label class="btn">
+            앨범에서 고르기
+            <input type="file" accept="image/*" id="photo-album" />
+          </label>
+        </div>
+        <div class="status-line" id="photo-status" aria-live="polite"></div>
+      </div>
+
+      <div class="card">
+        <h3>✏️ "p이면 q이다" 꼴로 명제 만들기</h3>
+        <div class="example">
+          예시) <b>p</b> = 낙엽이 떨어진다 / <b>q</b> = 가을이다<br />
+          → "낙엽이 떨어지면 가을이다."
+        </div>
+        <div class="field">
+          <label class="field-label" for="f-p">p <span class="hint">조건 (예: 낙엽이 떨어진다)</span></label>
+          <input id="f-p" data-field="p" type="text" maxlength="200" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="f-q">q <span class="hint">결론 (예: 가을이다)</span></label>
+          <input id="f-q" data-field="q" type="text" maxlength="200" autocomplete="off" />
+        </div>
+        <div class="field">
+          <span class="field-label">완성된 명제</span>
+          <div class="proposition empty" id="prop-preview">p와 q를 쓰면 여기에 명제가 만들어져요.</div>
+        </div>
+        <div class="field" id="original-edit-wrap" hidden>
+          <label class="field-label" for="f-original">문장이 어색하면 직접 고치세요 <button class="link-btn" type="button" id="original-reset">자동으로 다시 만들기</button></label>
+          <input id="f-original" type="text" maxlength="400" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="error-box" id="step1-error" hidden></div>
+      <div class="btn-row">
+        <button class="btn btn-primary grow" type="button" id="step1-next">다음 단계 →</button>
+      </div>
+    </section>
+
+    <!-- 2단계 -->
+    <section id="screen-step2" hidden>
+      <h2 class="screen-title">2단계 · 역, 대우 쓰고 참·거짓 판별하기</h2>
+      <div class="card soft">
+        <span class="prop-label">원래 명제</span>
+        <div class="proposition" id="step2-original"></div>
+      </div>
+
+      <div class="card">
+        <div class="field">
+          <label class="field-label" for="f-converse">역 <span class="hint-chip">q이면 p이다</span></label>
+          <input id="f-converse" data-field="converse" type="text" maxlength="400" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="f-contrapositive">대우 <span class="hint-chip">q가 아니면 p가 아니다</span></label>
+          <input id="f-contrapositive" data-field="contrapositive" type="text" maxlength="400" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>원래 명제는 참일까요, 거짓일까요?</h3>
+        <div class="toggle-group" role="group" aria-label="참 거짓 선택">
+          <button class="btn" type="button" id="btn-true" aria-pressed="false">참</button>
+          <button class="btn false" type="button" id="btn-false" aria-pressed="false">거짓</button>
+        </div>
+        <div class="field" id="reason-true-wrap" hidden style="margin-top:16px">
+          <label class="field-label" for="f-reason-true">참인 이유</label>
+          <textarea id="f-reason-true" data-field="reasonTrue" rows="3" maxlength="600"></textarea>
+        </div>
+        <div class="field" id="reason-false-wrap" hidden style="margin-top:16px">
+          <label class="field-label" for="f-counter">반례 <span class="hint">p인데 q가 아닌 경우</span></label>
+          <textarea id="f-counter" data-field="counterexample" rows="3" maxlength="600"></textarea>
+        </div>
+      </div>
+
+      <div class="error-box" id="step2-error" hidden></div>
+      <div class="btn-row">
+        <button class="btn" type="button" data-go="step1">← 이전</button>
+        <button class="btn btn-primary grow" type="button" id="step2-next">다음 단계 →</button>
+      </div>
+    </section>
+
+    <!-- 3단계 -->
+    <section id="screen-step3" hidden>
+      <h2 class="screen-title">3단계 · 명제 시 쓰기</h2>
+      <p class="lead">원래 명제, 역, 대우 중 <b>2개 이상</b>을 사용해서 시를 써 보세요.</p>
+
+      <details class="fold">
+        <summary>📝 내가 쓴 명제·역·대우 보기</summary>
+        <div class="fold-body">
+          <ul class="ref-list">
+            <li><span class="prop-label">원래 명제</span><span id="ref-original"></span></li>
+            <li><span class="prop-label">역</span><span id="ref-converse"></span></li>
+            <li><span class="prop-label">대우</span><span id="ref-contrapositive"></span></li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="fold">
+        <summary>💡 예시 시 보기</summary>
+        <div class="fold-body">
+<pre class="example-poem">낙엽이 떨어지면 가을이다.
+가을이면 낙엽이 떨어진다.
+가을이 아니면 낙엽은 떨어지지 않는다.
+그런데 바람 부는 봄날에도 잎은 떨어지더라.
+그러니 첫 줄은 거짓이었나 보다.</pre>
+        </div>
+      </details>
+
+      <div class="card">
+        <div class="field">
+          <label class="field-label" for="f-title">제목</label>
+          <input id="f-title" data-field="title" type="text" maxlength="100" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="f-body">시 <span class="hint">줄을 바꿔 자유롭게 쓰세요</span></label>
+          <textarea id="f-body" data-field="body" class="poem" maxlength="3000"></textarea>
+        </div>
+        <div class="field">
+          <span class="field-label">시에 사용한 문장 <span class="hint">2개 이상 고르기</span></span>
+          <div class="checks">
+            <label class="check"><input type="checkbox" name="used" value="original" />원래 명제</label>
+            <label class="check"><input type="checkbox" name="used" value="converse" />역</label>
+            <label class="check"><input type="checkbox" name="used" value="contrapositive" />대우</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="error-box" id="step3-error" hidden></div>
+      <div class="btn-row">
+        <button class="btn" type="button" data-go="step2">← 이전</button>
+        <button class="btn btn-accent grow" type="button" id="submit-btn">공유하기</button>
+      </div>
+    </section>
+
+    <!-- 4. 갤러리 -->
+    <section id="screen-gallery" hidden>
+      <h2 class="screen-title">🌳 우리 반 명제 시</h2>
+      <p class="lead"><span class="live-dot" id="live-dot"></span><span id="gallery-count"></span></p>
+      <div class="sort-bar" role="group" aria-label="정렬">
+        <button class="btn" type="button" data-sort="latest" aria-pressed="true">최신순</button>
+        <button class="btn" type="button" data-sort="likes" aria-pressed="false">추천순</button>
+        <button class="btn" type="button" data-sort="title" aria-pressed="false">제목순</button>
+      </div>
+      <ul class="poem-list" id="poem-list"></ul>
+      <div class="btn-row">
+        <button class="btn" type="button" id="gallery-mine">내 시 보기·고치기</button>
+      </div>
+    </section>
+
+    <!-- 상세 -->
+    <section id="screen-detail" hidden>
+      <div class="btn-row" style="margin:0 0 14px">
+        <button class="btn btn-small" type="button" data-go="gallery">← 목록으로</button>
+      </div>
+      <div id="detail-content"></div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.89.0/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/student.js"></script>
+</body>
+</html>
