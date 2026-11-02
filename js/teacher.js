@@ -18,45 +18,52 @@
     }
     // 학생 화면과 로그인 정보를 섞지 않도록 저장 키를 따로 씀
     sb = App.createClient("ppp-teacher-auth");
-    $("#login-email").value = window.APP_CONFIG.TEACHER_LOGIN_EMAIL || ""; // 비밀번호 관리자가 계정을 알아보도록
     bindEvents();
     const { data } = await sb.auth.getSession();
-    if (data.session && !data.session.user.is_anonymous) await enter();
+    if (data.session) await enter(true);
     else show("login");
   }
 
-  async function onLogin(e) {
-    e.preventDefault();
+  function loginError(msg) {
     const err = $("#login-error");
-    const btn = $("#login-submit");
-    err.hidden = true;
-    btn.disabled = true;
-    const { error } = await sb.auth.signInWithPassword({
-      email: (window.APP_CONFIG.TEACHER_LOGIN_EMAIL || "").trim(),
-      password: $("#login-password").value,
-    });
-    btn.disabled = false;
-    $("#login-password").value = "";
-    if (error) {
-      err.textContent = /invalid/i.test(error.message)
-        ? "비밀번호가 맞지 않습니다."
-        : /rate limit|too many/i.test(error.message)
-          ? "시도가 너무 많습니다. 잠시 후 다시 해 주세요."
-          : error.message;
-      err.hidden = false;
-      return;
-    }
-    await enter();
+    err.textContent = msg;
+    err.hidden = false;
   }
 
-  async function enter() {
+  // 교사 계정 없이 비밀번호 하나로: 익명 로그인 → claim_teacher(비밀번호) 가 맞으면 12시간 교사 권한
+  async function onLogin(e) {
+    e.preventDefault();
+    const btn = $("#login-submit");
+    const password = $("#login-password").value;
+    $("#login-error").hidden = true;
+    if (!password) return loginError("비밀번호를 입력해 주세요.");
+    btn.disabled = true;
+    try {
+      const { data: sessionData } = await sb.auth.getSession();
+      if (!sessionData.session) {
+        const { error } = await sb.auth.signInAnonymously();
+        if (error) throw error;
+      }
+      const { data: ok, error } = await sb.rpc("claim_teacher", { p_password: password });
+      if (error) throw error;
+      if (!ok) return loginError("비밀번호가 맞지 않습니다.");
+      $("#login-password").value = "";
+      await enter();
+    } catch (error) {
+      const msg = error.message || String(error);
+      loginError(/anonymous sign-ins are disabled/i.test(msg)
+        ? "Supabase에서 익명 로그인이 꺼져 있습니다. README 2단계를 확인하세요."
+        : /rate limit|too many/i.test(msg) ? "시도가 너무 많습니다. 잠시 후 다시 해 주세요." : msg);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function enter(silent) {
     const { data: isTeacher, error } = await sb.rpc("is_teacher");
     if (error || !isTeacher) {
-      await sb.auth.signOut();
       show("login");
-      const err = $("#login-error");
-      err.textContent = error ? error.message : "교사로 등록되지 않은 계정입니다. README의 '교사 계정 등록'을 확인하세요.";
-      err.hidden = false;
+      if (!silent) loginError(error ? error.message : "교사 권한을 얻지 못했습니다. 다시 로그인해 주세요.");
       return;
     }
     show("main");
@@ -242,6 +249,7 @@
   function bindEvents() {
     $("#login-form").addEventListener("submit", onLogin);
     $("#logout-btn").addEventListener("click", async () => {
+      await sb.rpc("release_teacher");
       await sb.auth.signOut();
       location.reload();
     });

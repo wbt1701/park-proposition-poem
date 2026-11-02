@@ -68,6 +68,7 @@ create index if not exists likes_user_id_idx on public.likes (user_id);
 -- 2. 함수와 트리거
 -- ---------------------------------------------------------------------
 -- 지금 로그인한 사람이 교사인가?
+--   비밀번호로 얻은 교사 권한(email = '비밀번호 로그인')은 12시간 동안만 유효
 create or replace function public.is_teacher()
 returns boolean
 language sql
@@ -75,7 +76,10 @@ stable
 security definer
 set search_path = ''
 as $$
-  select exists (select 1 from public.teachers t where t.user_id = (select auth.uid()));
+  select exists (
+    select 1 from public.teachers t
+     where t.user_id = (select auth.uid())
+       and (t.email is distinct from '비밀번호 로그인' or t.created_at > now() - interval '12 hours'));
 $$;
 
 -- 학생이 고칠 수 없는 칸(user_id, hidden, 시각)을 서버에서 고정
@@ -158,6 +162,98 @@ begin
         updated_at = now();
 end;
 $$;
+
+-- ---------------------------------------------------------------------
+-- 2-1. 교사 비밀번호 로그인 (교사 계정 없이 비밀번호 하나로 입장)
+--   교사 화면도 익명 로그인한 뒤 claim_teacher(비밀번호) 가 맞으면
+--   그 익명 ID 를 teachers 에 12시간 동안 넣어 줌 → 위의 RLS 가 그대로 적용됨
+--   비밀번호는 salt + sha256 해시로만 private 스키마(API 비노출)에 저장
+-- ---------------------------------------------------------------------
+create extension if not exists pgcrypto with schema extensions;
+create schema if not exists private;
+revoke all on schema private from public, anon, authenticated;
+
+create table if not exists private.teacher_secret (
+  id         int primary key default 1 check (id = 1),
+  salt       text not null,
+  hash       text not null,          -- encode(sha256(salt || 비밀번호), 'hex')
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists private.teacher_attempts (
+  id         bigint generated always as identity primary key,
+  user_id    uuid,
+  ok         boolean not null,
+  created_at timestamptz not null default now()
+);
+
+-- 비밀번호 바꾸기 (SQL Editor 전용). 바꾸면 비밀번호로 들어와 있던 교사 접속은 모두 끊김
+create or replace function private.set_teacher_password_hash(p_salt text, p_hash text)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  insert into private.teacher_secret (id, salt, hash, updated_at)
+  values (1, p_salt, p_hash, now())
+  on conflict (id) do update set salt = excluded.salt, hash = excluded.hash, updated_at = now();
+  delete from public.teachers where email = '비밀번호 로그인';
+$$;
+
+create or replace function public.claim_teacher(p_password text)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid    uuid := auth.uid();
+  v_secret private.teacher_secret%rowtype;
+begin
+  if v_uid is null then
+    raise exception '로그인이 필요합니다.';
+  end if;
+  -- 짐작 공격 막기: 한 접속당 10분에 5번, 전체 10분에 30번 틀리면 잠시 잠금
+  if (select count(*) from private.teacher_attempts
+       where not ok and user_id = v_uid and created_at > now() - interval '10 minutes') >= 5
+     or (select count(*) from private.teacher_attempts
+          where not ok and created_at > now() - interval '10 minutes') >= 30 then
+    raise exception '시도가 너무 많습니다. 10분 뒤에 다시 해 주세요.';
+  end if;
+
+  select * into v_secret from private.teacher_secret where id = 1;
+  if not found then
+    raise exception '교사 비밀번호가 아직 설정되지 않았습니다.';
+  end if;
+
+  if encode(extensions.digest(v_secret.salt || coalesce(p_password, ''), 'sha256'), 'hex') = v_secret.hash then
+    insert into public.teachers (user_id, email, created_at)
+    values (v_uid, '비밀번호 로그인', now())
+    on conflict (user_id) do update set created_at = now();
+    insert into private.teacher_attempts (user_id, ok) values (v_uid, true);
+    return true;
+  end if;
+
+  insert into private.teacher_attempts (user_id, ok) values (v_uid, false);
+  return false;
+end;
+$$;
+
+-- 교사 화면 로그아웃: 이 접속의 교사 권한 지우기
+create or replace function public.release_teacher()
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  delete from public.teachers where user_id = (select auth.uid()) and email = '비밀번호 로그인';
+$$;
+
+revoke execute on function private.set_teacher_password_hash(text, text) from public, anon, authenticated;
+revoke execute on function public.claim_teacher(text)   from public, anon;
+revoke execute on function public.release_teacher()     from public, anon;
+grant  execute on function public.claim_teacher(text)   to authenticated;
+grant  execute on function public.release_teacher()     to authenticated;
 
 revoke execute on function public.is_teacher()                  from public, anon;
 revoke execute on function public.register_author(text, text)   from public, anon;

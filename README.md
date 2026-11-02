@@ -30,7 +30,8 @@ supabase/sample-data.sql  테스트용 예시 글 4편
 ## 2. 익명 로그인 켜기
 
 1. 왼쪽 메뉴 **Authentication → Sign In / Providers**
-2. **Allow anonymous sign-ins** 켜기 → **Save**
+2. **Allow new users to sign up** 과 **Allow anonymous sign-ins** 를 **둘 다** 켜기 → **Save**
+   (가입 허용이 꺼져 있으면 익명 로그인도 막힙니다. 이메일 가입자가 생겨도 교사 권한은 없으니 괜찮습니다)
 3. (중요) **Authentication → Rate Limits** 에서 *Anonymous sign-ins* 한도를 **시간당 100 이상**으로 올리세요.
    기본값은 IP당 시간당 30회라서, 학교 와이파이처럼 한 IP로 30명 넘게 들어오면 막힐 수 있습니다.
 
@@ -51,28 +52,27 @@ supabase/sample-data.sql  테스트용 예시 글 4편
 | `post_list` (뷰) | 글 목록 + 좋아요 수 (정렬용) | 부르는 사람의 권한 그대로 |
 | `photos` (버킷) | 사진. 공개 읽기, 자기 폴더에만 업로드 | 누구나(주소를 아는 경우) |
 
-## 4. 교사 계정 등록 (비밀번호 하나로 로그인)
+## 4. 교사 비밀번호 정하기 (교사 계정 없음)
 
-교사 화면은 **비밀번호만** 입력합니다. 안에서는 `config.js` 의 `TEACHER_LOGIN_EMAIL`
-(기본값 `park-poem-teacher@example.com`, 메일이 오지 않는 예약 주소) 계정으로 로그인합니다.
+교사 화면은 **비밀번호 하나만** 입력합니다. 교사 화면도 익명 로그인한 뒤,
+비밀번호가 맞으면 그 접속에 **12시간 동안** 교사 권한을 줍니다(로그아웃하면 바로 사라짐).
 
-1. **Authentication → Users → Add user → Create new user**
-   - Email: `park-poem-teacher@example.com` (config.js 와 똑같이)
-   - Password: 교사용 비밀번호
-   - **Auto Confirm User** 체크 → **Create user**
-2. **SQL Editor** 에서 아래를 실행
+- 비밀번호는 원문이 아니라 `salt + sha256` 해시로만 `private.teacher_secret`(API로 볼 수 없는 곳)에 저장됩니다.
+- 틀린 시도는 한 접속당 10분에 5번, 전체 10분에 30번까지만 받고 잠깁니다.
 
-```sql
-insert into public.teachers (user_id, email)
-select id, email from auth.users where email = 'park-poem-teacher@example.com'
-on conflict (user_id) do nothing;
+**비밀번호 정하기·바꾸기** — 원문이 SQL 기록에 남지 않도록 해시를 내 컴퓨터에서 만든 뒤 넣습니다.
+
+1. 내 컴퓨터(Node.js 설치됨)에서 실행하고, 물어보면 새 비밀번호를 입력
+
+```bash
+node -e "const c=require('crypto'),r=require('readline').createInterface({input:process.stdin,output:process.stdout});r.question('새 교사 비밀번호: ',p=>{const s=c.randomBytes(16).toString('hex');console.log(\"select private.set_teacher_password_hash('\"+s+\"', '\"+c.createHash('sha256').update(s+p).digest('hex')+\"');\");r.close()})"
 ```
 
-3. 확인: `select * from public.teachers;` 에 한 줄이 나오면 됩니다.
+2. 출력된 `select private.set_teacher_password_hash(...)` 한 줄을 **SQL Editor** 에 붙여 넣고 **Run**
+3. 바꾸면 이미 들어와 있던 교사 화면은 모두 로그아웃됩니다.
 
-> 교사 권한은 `teachers` 표에 있는 계정에만 생깁니다. 다른 사람이 가입해도 교사 화면은 열리지 않습니다.
-> 로그인 주소가 공개 코드에 있으므로 **비밀번호만이 유일한 보호막**입니다. 길고 추측하기 어렵게 정하고, 학생에게 보이지 않게 하세요.
-> 비밀번호를 바꾸려면 Authentication → Users → 해당 계정 → 비밀번호 변경(Reset/Update password).
+> 교사 화면에는 학생들의 학번·이름이 있습니다. **비밀번호만이 보호막**이니 길고 추측하기 어렵게 정하고, 수업 중 학생에게 보이지 않게 하세요.
+> (예전 방식처럼 이메일 계정을 `teachers` 표에 직접 넣어도 교사로 인정됩니다.)
 
 ## 5. config.js 채우기
 
@@ -137,6 +137,7 @@ delete from auth.users where id::text like '00000000-0000-4000-8000-00000000000%
 - **새로고침해도 이어서 쓸 수 있습니다.** 입력 중인 내용은 휴대폰에 자동 저장됩니다.
 - **같은 휴대폰·같은 브라우저**에서만 자기 시를 고칠 수 있습니다. 브라우저 기록을 지우거나 다른 폰으로 들어오면 새 학생으로 처리됩니다(교사 화면에 같은 학번이 두 번 보일 수 있음).
 - 학생은 **자기 시를 공유한 뒤에** 갤러리를 볼 수 있습니다(베끼기 방지).
+- 교사 화면 로그인은 12시간 동안 유지됩니다. 수업이 끝나면 [로그아웃]을 눌러 주세요.
 - 교사가 숨긴 글은 다른 학생 갤러리에서 사라집니다(최대 30초 안에 반영). 작성 학생 본인에게는 "선생님이 숨김"으로 보입니다.
 - 사진은 업로드 전에 가로 1280px 이하 JPEG로 줄여서 올라갑니다(보통 200~500KB).
 - 사진 버킷은 공개입니다. 숨기거나 지운 글의 사진도 **주소를 아는 사람**은 볼 수 있으니, 부적절한 글은 숨기기보다 **삭제**를 쓰세요(삭제하면 사진도 지워집니다).
@@ -157,6 +158,6 @@ delete from auth.users where id::text like '00000000-0000-4000-8000-00000000000%
 | "config.js 에 Supabase 주소와 anon 키를 넣어 주세요" | 5단계. 저장 후 push 했는지 |
 | "익명 로그인이 꺼져 있어요" | 2단계 Allow anonymous sign-ins |
 | "접속이 몰렸어요" | 2단계 Rate Limits 올리기 |
-| 교사 로그인 후 "교사로 등록되지 않은 계정" | 4단계 `teachers` 에 넣었는지 |
+| 교사 화면 "비밀번호가 맞지 않습니다" | 4단계 비밀번호를 정했는지, 10분 잠금에 걸렸는지 |
 | 사진 업로드 실패 | setup.sql 의 Storage 부분이 실행됐는지, 사진이 5MB 이하 이미지인지 |
 | 좋아요 수가 바로 안 바뀜 | Database → Publications → `supabase_realtime` 에 posts, likes 가 있는지 |
