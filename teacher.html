@@ -33,32 +33,48 @@
 
     <!-- 제출 목록 -->
     <section id="view-main" hidden>
-      <div class="toolbar">
-        <span class="stats"><span class="live-dot" id="live-dot"></span><span id="stats"></span></span>
+      <div class="tabs" role="tablist">
+        <button class="tab" type="button" role="tab" data-tab="list" aria-selected="true">제출 목록</button>
+        <button class="tab" type="button" role="tab" data-tab="locations" aria-selected="false">🎁 장소 관리</button>
         <span class="spacer"></span>
-        <span class="hint">정렬</span>
-        <button class="btn btn-small" type="button" data-sort="sid" aria-pressed="true">학번순</button>
-        <button class="btn btn-small" type="button" data-sort="likes" aria-pressed="false">좋아요순</button>
-        <button class="btn btn-small" type="button" data-sort="time" aria-pressed="false">제출 시각순</button>
-        <button class="btn btn-small btn-accent" type="button" id="csv-btn">CSV 다운로드</button>
+        <span class="stats"><span class="live-dot" id="live-dot"></span></span>
         <button class="btn btn-small" type="button" id="logout-btn">로그아웃</button>
       </div>
 
-      <div class="table-wrap">
-        <table class="subs">
-          <thead>
-            <tr>
-              <th>학번</th><th>이름</th><th>시 제목</th><th>참·거짓</th><th>좋아요</th><th>제출 시각</th><th>상태</th><th>개별 저장</th>
-            </tr>
-          </thead>
-          <tbody id="rows"></tbody>
-        </table>
+      <div id="tab-list">
+        <div class="toolbar">
+          <span class="stats" id="stats"></span>
+          <span class="spacer"></span>
+          <span class="hint">정렬</span>
+          <button class="btn btn-small" type="button" data-sort="sid" aria-pressed="true">학번순</button>
+          <button class="btn btn-small" type="button" data-sort="likes" aria-pressed="false">좋아요순</button>
+          <button class="btn btn-small" type="button" data-sort="time" aria-pressed="false">제출 시각순</button>
+          <button class="btn btn-small btn-accent" type="button" id="csv-btn">CSV 다운로드</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="subs">
+            <thead>
+              <tr>
+                <th>학번</th><th>이름</th><th>시 제목</th><th>참·거짓</th><th>AI</th><th>좋아요</th><th>제출 시각</th><th>상태</th>
+                <th class="m">미션 대상</th><th class="m">배정 장소</th><th class="m">획득</th><th class="m">획득 시각</th><th class="m">상품 지급</th>
+                <th>개별 저장</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+
+        <details class="fold" style="margin-top:16px" id="pending-wrap">
+          <summary id="pending-summary">입장했지만 아직 제출하지 않은 학생</summary>
+          <div class="fold-body"><p id="pending-list" style="margin:0;font-weight:700"></p></div>
+        </details>
       </div>
 
-      <details class="fold" style="margin-top:16px" id="pending-wrap">
-        <summary id="pending-summary">입장했지만 아직 제출하지 않은 학생</summary>
-        <div class="fold-body"><p id="pending-list" style="margin:0;font-weight:700"></p></div>
-      </details>
+      <div id="tab-locations" hidden>
+        <p class="lead">확인 코드는 장소마다 봉투에 넣은 코드와 똑같이 입력하세요(대소문자·띄어쓰기는 구분하지 않음). 마감한 장소는 새로 배정되지 않고, 이미 배정된 학생은 그대로입니다.</p>
+        <div class="loc-grid" id="loc-grid"></div>
+      </div>
     </section>
   </main>
 

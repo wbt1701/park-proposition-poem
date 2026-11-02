@@ -2,7 +2,7 @@
 (function () {
   const { $, $$, h, toast } = App;
   let sb = null;
-  const state = { rows: [], pending: [], sort: "sid", openId: null };
+  const state = { rows: [], pending: [], locations: [], assignments: [], sort: "sid", openId: null };
 
   function show(view) {
     $("#view-login").hidden = view !== "login";
@@ -73,24 +73,35 @@
 
   // ---------------------------------------------------------------- 데이터
   async function load() {
-    const [postsRes, authorsRes, countsRes] = await Promise.all([
+    const [postsRes, authorsRes, countsRes, locRes, asgRes] = await Promise.all([
       sb.from("posts").select("*"),
       sb.from("authors").select("*"),
       sb.from("post_list").select("id,like_count"),
+      sb.from("locations").select("*").order("id"),
+      sb.from("assignments").select("*"),
     ]);
-    const err = postsRes.error || authorsRes.error || countsRes.error;
+    const err = postsRes.error || authorsRes.error || countsRes.error || locRes.error || asgRes.error;
     if (err) return toast("불러오기 실패: " + err.message, true);
 
+    state.locations = locRes.data;
+    state.assignments = asgRes.data;
     const authorByUser = new Map(authorsRes.data.map((a) => [a.user_id, a]));
     const likeById = new Map(countsRes.data.map((c) => [c.id, c.like_count]));
+    const asgByUser = new Map(asgRes.data.map((a) => [a.user_id, a]));
+    const locById = new Map(locRes.data.map((l) => [l.id, l]));
     state.rows = postsRes.data.map((p) => {
       const a = authorByUser.get(p.user_id) || {};
+      const asg = asgByUser.get(p.user_id) || null;
       return Object.assign({}, p, {
         student_id: a.student_id || "",
         name: a.name || "(정보 없음)",
         like_count: likeById.get(p.id) || 0,
+        eligible: isEligible(p),
+        asg,
+        loc_name: asg && locById.get(asg.location_id) ? locById.get(asg.location_id).name : "",
       });
     });
+    renderLocations();
     const posted = new Set(postsRes.data.map((p) => p.user_id));
     state.pending = authorsRes.data
       .filter((a) => !posted.has(a.user_id))
@@ -112,6 +123,101 @@
     return new Date(iso).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
+  // 서버 mission_eligible() 과 같은 기준: 숨기지 않음 + 사진 + 본문 5줄 이상(빈 줄 제외)
+  function isEligible(p) {
+    return !p.hidden && !!(p.photo_url || "").trim() && p.body.split(/\r?\n/).filter((l) => l.trim()).length >= 5;
+  }
+  const aiText = (v) => (v === true ? "사용" : v === false ? "안 함" : "-");
+  const stop = (e) => e.stopPropagation();
+  function missionText(r) {
+    if (!r.asg) return r.eligible ? "대상 (아직 미션을 열지 않음)" : "대상 아님";
+    return `${r.loc_name} · ` + (r.asg.found_at ? `획득 ${fmtFull(r.asg.found_at)}` : "찾는 중") +
+      (r.asg.prize_given ? " · 상품 지급" : "");
+  }
+
+  // ---------------------------------------------------------------- 보물찾기: 학생별 장소·상품
+  function locationSelect(r) {
+    return h("select", {
+      class: "loc-select", "aria-label": `${r.student_id} 배정 장소`,
+      onclick: stop, onkeydown: stop, onchange: (e) => changeLocation(r, e.target.value),
+    },
+      h("option", { value: "" }, "미배정"),
+      state.locations.map((l) =>
+        h("option", { value: String(l.id), selected: !!r.asg && r.asg.location_id === l.id },
+          l.name + (l.is_closed ? " (마감)" : ""))));
+  }
+
+  async function changeLocation(r, value) {
+    const loc = state.locations.find((l) => String(l.id) === value);
+    const msg = loc
+      ? `${r.student_id} ${r.name} 학생의 장소를 '${loc.name}'(으)로 바꿀까요?\n(획득 기록은 지워지고 새 문제가 보입니다)`
+      : `${r.student_id} ${r.name} 학생의 배정을 취소할까요?\n(획득 기록도 지워집니다)`;
+    if (!confirm(msg)) return render();
+    const { error } = loc
+      ? await sb.from("assignments").upsert(
+          { user_id: r.user_id, location_id: loc.id, found_at: null, assigned_at: new Date().toISOString() },
+          { onConflict: "user_id" })
+      : await sb.from("assignments").delete().eq("user_id", r.user_id);
+    if (error) {
+      toast("변경 실패: " + error.message, true);
+      return render();
+    }
+    toast("배정 장소를 바꿨습니다.");
+    await load();
+  }
+
+  async function setPrize(r, given) {
+    const { error } = await sb.from("assignments").update({ prize_given: given }).eq("user_id", r.user_id);
+    if (error) toast("저장 실패: " + error.message, true);
+    else toast(given ? "상품 지급으로 표시했습니다." : "상품 지급 표시를 지웠습니다.");
+    await load();
+  }
+
+  // ---------------------------------------------------------------- 보물찾기: 장소 관리 탭
+  function renderLocations() {
+    const grid = $("#loc-grid");
+    grid.replaceChildren();
+    for (const l of state.locations) {
+      const mine = state.assignments.filter((a) => a.location_id === l.id);
+      const input = h("input", { type: "text", value: l.confirm_code || "", maxlength: "20", placeholder: "확인 코드", "aria-label": l.name + " 확인 코드" });
+      grid.append(h("div", { class: "loc-card" + (l.is_closed ? " closed" : "") },
+        h("h3", {}, l.name, h("span", { class: "badge " + (l.is_closed ? "gray" : "true") }, l.is_closed ? "마감" : "진행 중")),
+        h("div", { class: "loc-stats" },
+          h("div", {}, h("b", {}, String(mine.length)), "배정된 학생"),
+          h("div", {}, h("b", {}, String(mine.filter((a) => a.found_at).length)), "획득 성공")),
+        h("div", { class: "loc-code-row" },
+          input,
+          h("button", { type: "button", class: "btn btn-small btn-primary", onclick: () => saveCode(l, input.value) }, "저장")),
+        l.confirm_code ? null : h("p", { class: "hint", style: "margin:0 0 10px;color:var(--danger)" }, "아직 확인 코드가 없어요"),
+        h("button", { type: "button", class: "btn btn-small btn-block" + (l.is_closed ? " btn-accent" : ""), onclick: () => toggleClosed(l) },
+          l.is_closed ? "마감 풀기" : "마감"),
+        h("details", {},
+          h("summary", { class: "hint", style: "cursor:pointer;margin-top:10px" }, "문제 보기"),
+          h("ul", { class: "loc-puzzle" }, (l.puzzle || []).map((s) => h("li", {}, `${s.emoji} ${s.animal}: “${s.text}”`))))));
+    }
+  }
+
+  async function saveCode(l, raw) {
+    const code = raw.trim().toUpperCase() || null;
+    const { error } = await sb.from("locations").update({ confirm_code: code, updated_at: new Date().toISOString() }).eq("id", l.id);
+    if (error) return toast(error.code === "23505" ? "다른 장소와 같은 코드예요. 다르게 정해 주세요." : "저장 실패: " + error.message, true);
+    toast(`${l.name} 확인 코드를 저장했습니다.`);
+    await load();
+  }
+
+  async function toggleClosed(l) {
+    const { error } = await sb.from("locations").update({ is_closed: !l.is_closed, updated_at: new Date().toISOString() }).eq("id", l.id);
+    if (error) return toast("변경 실패: " + error.message, true);
+    toast(l.is_closed ? `${l.name} 마감을 풀었습니다.` : `${l.name}을(를) 마감했습니다.`);
+    await load();
+  }
+
+  function showTab(tab) {
+    $$("[data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+    $("#tab-list").hidden = tab !== "list";
+    $("#tab-locations").hidden = tab !== "locations";
+  }
+
   function render() {
     $$("[data-sort]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.sort === state.sort)));
     const hiddenCount = state.rows.filter((r) => r.hidden).length;
@@ -121,7 +227,7 @@
     const tbody = $("#rows");
     tbody.replaceChildren();
     if (!state.rows.length) {
-      tbody.append(h("tr", {}, h("td", { colspan: "8", class: "empty-state" }, "아직 제출된 시가 없습니다.")));
+      tbody.append(h("tr", {}, h("td", { colspan: "14", class: "empty-state" }, "아직 제출된 시가 없습니다.")));
     }
     for (const r of sorted()) {
       tbody.append(
@@ -131,9 +237,19 @@
           h("td", {}, r.name),
           h("td", { class: "title-cell" }, r.title),
           h("td", {}, h("span", { class: "badge " + (r.is_true ? "true" : "false") }, r.is_true ? "참" : "거짓")),
+          h("td", {}, aiText(r.ai_used)),
           h("td", {}, "♥ " + r.like_count),
           h("td", {}, fmtFull(r.created_at)),
           h("td", {}, r.hidden ? h("span", { class: "badge gray" }, "숨김") : "공개"),
+          h("td", {}, r.eligible ? "○" : "-"),
+          h("td", {}, locationSelect(r)),
+          h("td", {}, r.asg && r.asg.found_at ? h("span", { class: "badge true" }, "획득") : "-"),
+          h("td", {}, r.asg && r.asg.found_at ? fmtFull(r.asg.found_at) : "-"),
+          h("td", {}, h("input", {
+            type: "checkbox", class: "prize-check", "aria-label": `${r.student_id} 상품 지급`,
+            checked: !!(r.asg && r.asg.prize_given), disabled: !r.asg,
+            onclick: stop, onkeydown: stop, onchange: (e) => setPrize(r, e.target.checked),
+          })),
           h("td", {}, h("button", {
             type: "button", class: "btn btn-small",
             onclick: (e) => {
@@ -173,7 +289,9 @@
         h("dt", {}, "역"), h("dd", {}, r.converse),
         h("dt", {}, "대우"), h("dd", {}, r.contrapositive),
         h("dt", {}, "사용한 문장"), h("dd", {}, used),
+        h("dt", {}, "AI 사용"), h("dd", {}, aiText(r.ai_used)),
         h("dt", {}, "좋아요"), h("dd", {}, String(r.like_count)),
+        h("dt", {}, "비밀 미션"), h("dd", {}, missionText(r)),
         h("dt", {}, "제출 / 수정"), h("dd", {}, fmtFull(r.created_at) + " / " + fmtFull(r.updated_at))),
       h("div", { class: "card soft" },
         h("h3", {}, r.title),
@@ -257,6 +375,7 @@
           row("역", r.converse),
           row("대우", r.contrapositive),
           row("사용한 문장", r.used_sentences.map((k) => App.SENTENCE_LABELS[k] || k).join(", ")),
+          row("AI 사용", aiText(r.ai_used)),
           row("좋아요", String(r.like_count))));
       const holder = h("div", { class: "pdf-holder" }, sheet);
       document.body.append(holder);
@@ -293,15 +412,19 @@
 
   function downloadCsv() {
     const header = ["학번", "이름", "시 제목", "시 본문", "p", "q", "원래 명제", "참·거짓", "이유 또는 반례",
-                    "역", "대우", "사용한 문장", "좋아요", "숨김", "제출 시각", "수정 시각"];
+                    "역", "대우", "사용한 문장", "AI 사용", "좋아요", "숨김", "제출 시각", "수정 시각",
+                    "미션 대상", "배정 장소", "보물 획득", "획득 시각", "상품 지급"];
     const lines = [header.map(csvCell).join(",")];
     for (const r of sorted()) {
       lines.push([
         r.student_id, r.name, r.title, r.body, r.p, r.q, r.original, r.is_true ? "참" : "거짓",
         r.reason_or_counterexample, r.converse, r.contrapositive,
         r.used_sentences.map((k) => App.SENTENCE_LABELS[k] || k).join(" / "),
-        r.like_count, r.hidden ? "숨김" : "",
+        aiText(r.ai_used), r.like_count, r.hidden ? "숨김" : "",
         new Date(r.created_at).toLocaleString("ko-KR"), new Date(r.updated_at).toLocaleString("ko-KR"),
+        r.eligible ? "대상" : "", r.loc_name, r.asg && r.asg.found_at ? "획득" : "",
+        r.asg && r.asg.found_at ? new Date(r.asg.found_at).toLocaleString("ko-KR") : "",
+        r.asg && r.asg.prize_given ? "지급" : "",
       ].map(csvCell).join(","));
     }
     // UTF-8 BOM(﻿) → 엑셀에서 한글이 깨지지 않음
@@ -326,6 +449,7 @@
       .channel("teacher")
       .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, later)
       .on("postgres_changes", { event: "*", schema: "public", table: "likes" }, later)
+      .on("postgres_changes", { event: "*", schema: "public", table: "assignments" }, later)
       .subscribe((status) => $("#live-dot").classList.toggle("on", status === "SUBSCRIBED"));
     setInterval(load, 60000); // 미제출 학생 목록(authors)은 실시간 대상이 아니라 주기적으로 갱신
   }
@@ -344,6 +468,7 @@
       })
     );
     $("#csv-btn").addEventListener("click", downloadCsv);
+    $$("[data-tab]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
     $("#dlg-close").addEventListener("click", () => $("#detail").close());
     $("#detail").addEventListener("close", () => (state.openId = null));
   }

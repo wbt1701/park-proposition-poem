@@ -299,6 +299,45 @@ details.fold .fold-body { padding: 0 16px 16px; }
 .like-btn { min-width: 140px; }
 .like-btn[aria-pressed="true"] { background: var(--yellow); border-color: var(--yellow-line); color: #2e2300; }
 
+.toggle-group.small .btn { font-size: 1rem; min-height: 58px; padding: 0 8px; }
+
+/* ---------- 보물찾기 미션 ---------- */
+.mission-btn { min-height: 64px; font-size: 1.15rem; margin-bottom: 14px; box-shadow: 0 4px 0 var(--yellow-line); animation: wiggle 2.4s ease-in-out infinite; }
+@keyframes wiggle { 0%, 88%, 100% { transform: rotate(0); } 92% { transform: rotate(-1.5deg); } 96% { transform: rotate(1.5deg); } }
+@media (prefers-reduced-motion: reduce) { .mission-btn { animation: none; } }
+.mission-intro { font-weight: 700; line-height: 1.8; }
+.mission-intro p { margin: 0 0 8px; }
+.mission-intro p:last-child { margin: 0; }
+.bubbles { list-style: none; margin: 0 0 16px; padding: 0; }
+.bubble { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.bubble .who { flex: 0 0 64px; text-align: center; font-weight: 900; font-size: 0.85rem; color: var(--green-dark); }
+.bubble .who .face {
+  display: flex; align-items: center; justify-content: center;
+  width: 64px; height: 64px; border-radius: 50%;
+  background: var(--green-soft); border: 3px solid var(--green); font-size: 2rem; margin-bottom: 2px;
+}
+.bubble .say {
+  position: relative; flex: 1; background: #fff; border: 2px solid var(--line); border-radius: 18px;
+  padding: 12px 14px; font-size: 1.1rem; font-weight: 800; line-height: 1.6; margin-top: 6px;
+}
+.bubble .say::before {
+  content: ""; position: absolute; left: -10px; top: 18px; width: 16px; height: 16px;
+  background: #fff; border-left: 2px solid var(--line); border-bottom: 2px solid var(--line); transform: rotate(45deg);
+}
+.code-input { text-transform: uppercase; letter-spacing: 0.15em; font-size: 1.4rem !important; font-weight: 900; text-align: center; }
+.mission-msg { margin-top: 12px; padding: 12px 14px; border-radius: 14px; font-weight: 900; }
+.mission-msg.warn { background: var(--yellow-soft); border: 2px solid var(--yellow-line); color: #4a3800; }
+.mission-msg.bad { background: var(--danger-soft); border: 2px solid var(--danger); color: var(--danger); }
+.success-screen {
+  text-align: center; background: var(--yellow); border: 6px solid var(--green); border-radius: 28px;
+  padding: 28px 16px 32px; color: #1d2a00;
+}
+.success-screen .big { font-size: 2.3rem; font-weight: 900; line-height: 1.3; margin: 0 0 18px; }
+.success-screen .sid-label { font-weight: 900; font-size: 1.1rem; }
+.success-screen .sid { font-size: 6rem; font-weight: 900; line-height: 1; letter-spacing: 0.05em; color: var(--green-dark); margin: 4px 0 16px; }
+.success-screen .time { font-size: 1.3rem; font-weight: 800; margin-bottom: 20px; }
+.success-screen .show-teacher { font-size: 1.35rem; font-weight: 900; background: var(--green); color: #fff; border-radius: 16px; padding: 14px; }
+
 .toast {
   position: fixed;
   left: 50%;
@@ -334,6 +373,23 @@ table.subs tbody tr { cursor: pointer; }
 table.subs tbody tr:hover { background: #fafcf3; }
 table.subs tbody tr.is-hidden { color: #8a948b; background: #f4f4f4; }
 .login-card { max-width: 420px; margin: 40px auto; }
+.tabs { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; border-bottom: 3px solid var(--green-soft); padding-bottom: 8px; flex-wrap: wrap; }
+.tabs .spacer { flex: 1; }
+.tab { min-height: 48px; padding: 0 18px; border-radius: 12px; border: 2px solid transparent; background: none; font-weight: 900; font-size: 1.05rem; cursor: pointer; color: var(--muted); }
+.tab[aria-selected="true"] { background: var(--green); color: #fff; }
+table.subs th.m { background: var(--yellow-soft); }
+.loc-select { min-height: 40px; border-radius: 10px; border: 2px solid var(--line); padding: 0 8px; font-weight: 700; background: #fff; }
+.prize-check { width: 24px; height: 24px; accent-color: var(--green); cursor: pointer; }
+.loc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.loc-card { background: #fff; border: 2px solid var(--line); border-radius: 20px; padding: 18px; }
+.loc-card.closed { background: #f1f1ef; border-style: dashed; }
+.loc-card h3 { margin: 0 0 6px; font-size: 1.25rem; display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.loc-stats { display: flex; gap: 10px; margin: 8px 0 14px; }
+.loc-stats div { flex: 1; background: var(--green-soft); border-radius: 12px; padding: 8px; text-align: center; font-weight: 800; font-size: 0.85rem; }
+.loc-stats b { display: block; font-size: 1.6rem; color: var(--green-dark); }
+.loc-code-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.loc-code-row input { flex: 1; min-height: 48px; text-transform: uppercase; font-weight: 900; letter-spacing: 0.08em; }
+.loc-puzzle { margin: 10px 0 0; padding-left: 20px; font-size: 0.9rem; font-weight: 600; }
 dialog.detail {
   width: min(760px, calc(100% - 24px));
   max-height: calc(100% - 24px);

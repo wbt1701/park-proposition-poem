@@ -1,7 +1,7 @@
 // 학생 화면: 입장 → 1~3단계 → 갤러리/상세
 (function () {
   const { $, $$, h, toast } = App;
-  const SCREENS = ["loading", "entry", "welcome", "step1", "step2", "step3", "gallery", "detail"];
+  const SCREENS = ["loading", "entry", "welcome", "step1", "step2", "step3", "gallery", "detail", "mission"];
   const STEPS = ["step1", "step2", "step3"];
 
   let sb = null;
@@ -24,7 +24,7 @@
     return {
       photoUrl: "", p: "", q: "", original: "", originalEdited: false,
       converse: "", contrapositive: "", isTrue: null, reasonTrue: "", counterexample: "",
-      title: "", body: "", used: [],
+      title: "", body: "", used: [], aiUsed: null,
     };
   }
 
@@ -36,6 +36,7 @@
       reasonTrue: post.is_true ? post.reason_or_counterexample : "",
       counterexample: post.is_true ? "" : post.reason_or_counterexample,
       title: post.title, body: post.body, used: post.used_sentences.slice(),
+      aiUsed: typeof post.ai_used === "boolean" ? post.ai_used : null,
     };
   }
 
@@ -94,6 +95,7 @@
     // 갤러리는 자기 시를 공유한 뒤에 볼 수 있음
     if (hash === "gallery") return state.myPost ? renderGallery() : go("step1");
     if (hash.startsWith("post/")) return state.myPost ? renderDetail(hash.slice(5)) : go("step1");
+    if (hash === "mission") return state.myPost ? renderMission() : go("step1");
     if (hash === "welcome" && state.myPost) return renderWelcome();
     return go(state.myPost ? "welcome" : "step1");
   }
@@ -322,6 +324,7 @@
     $("#ref-converse").textContent = state.draft.converse;
     $("#ref-contrapositive").textContent = state.draft.contrapositive;
     $$('input[name="used"]').forEach((cb) => (cb.checked = state.draft.used.includes(cb.value)));
+    renderAi();
     $("#submit-btn").textContent = state.myPost ? "고친 시 저장하기" : "공유하기";
     $("#step3-error").hidden = true;
   }
@@ -332,7 +335,13 @@
     if (!d.title.trim()) errors.push("제목을 써 주세요.");
     if (!d.body.trim()) errors.push("시를 써 주세요.");
     if (d.used.length < 2) errors.push("시에 사용한 문장을 2개 이상 골라 주세요.");
+    if (d.aiUsed === null) errors.push("AI 사용 여부를 골라 주세요.");
     return errors;
+  }
+
+  function renderAi() {
+    $("#ai-no").setAttribute("aria-pressed", String(state.draft.aiUsed === false));
+    $("#ai-yes").setAttribute("aria-pressed", String(state.draft.aiUsed === true));
   }
 
   async function onSubmit() {
@@ -353,6 +362,7 @@
       title: d.title.trim(),
       body: d.body.replace(/\s+$/, ""),
       used_sentences: ["original", "converse", "contrapositive"].filter((k) => d.used.includes(k)),
+      ai_used: d.aiUsed,
     };
 
     const btn = $("#submit-btn");
@@ -405,8 +415,9 @@
     return list;
   }
 
-  async function renderGallery(skipLoad) {
+  async function renderGallery(skipLoad, fromRefresh) {
     showScreen("gallery");
+    if (!skipLoad && !fromRefresh) checkMissionButton();
     if (!skipLoad) await loadList();
     $$(".sort-bar [data-sort]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.sort === state.sort)));
     const visible = state.list.filter((p) => !p.hidden);
@@ -493,6 +504,91 @@
     await renderDetail(postId, true);
   }
 
+  // ---------------------------------------------------------------- 보물찾기 비밀 미션
+  // 조건(사진 + 본문 5줄 이상)은 서버 함수가 판단. 조건이 안 되면 버튼도 안내도 없음
+  async function checkMissionButton() {
+    const btn = $("#mission-open");
+    const { data, error } = await sb.rpc("get_or_assign_mission", { p_assign: false });
+    btn.hidden = !!error || !data || data.status === "ineligible";
+  }
+
+  const MISSION_INTRO = [
+    "보물의 위치를 알고 있는 공원 동물 다섯 마리가 한마디씩 했다.",
+    "이 중 정확히 두 마리는 거짓말을 하고, 나머지 세 마리는 진실을 말한다.",
+    "보물은 놀이터, 정자, 운동기구, 화장실 건물, 인라인스케이트장 중 한 곳에 있다.",
+  ];
+
+  let missionBusy = false;
+  async function renderMission() {
+    showScreen("mission");
+    const box = $("#mission-content");
+    box.replaceChildren(h("p", { class: "empty-state" }, "미션을 불러오는 중…"));
+    const { data, error } = await sb.rpc("get_or_assign_mission", { p_assign: true });
+    if (error) {
+      box.replaceChildren(h("div", { class: "error-box" }, "미션을 불러오지 못했어요: " + friendlyError(error)));
+      return;
+    }
+    if (data.status === "ineligible") return go("gallery");
+    if (data.status === "no_open") {
+      box.replaceChildren(h("div", { class: "card soft empty-state" }, "지금은 진행 중인 보물이 없어요."));
+      return;
+    }
+    if (data.status === "found") return renderMissionSuccess(box, data);
+
+    const msg = h("div", { class: "mission-msg", hidden: true, "aria-live": "polite" });
+    const input = h("input", {
+      type: "text", class: "code-input", maxlength: "20", autocomplete: "off", autocapitalize: "characters",
+      id: "mission-code", "aria-label": "확인 코드",
+    });
+    const submit = h("button", { type: "submit", class: "btn btn-primary btn-block", style: "margin-top:10px" }, "확인");
+    const form = h("form", { class: "card", novalidate: true },
+      h("label", { class: "field-label", for: "mission-code" }, "보물을 찾았다면 봉투 안의 확인 코드를 입력하세요"),
+      input, submit, msg);
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const code = input.value.trim();
+      const show = (text, kind) => {
+        msg.textContent = text;
+        msg.className = "mission-msg " + kind;
+        msg.hidden = false;
+      };
+      if (!code) return show("확인 코드를 입력해 주세요.", "warn");
+      if (missionBusy) return;
+      missionBusy = true;
+      submit.disabled = true;
+      const res = await sb.rpc("submit_confirm_code", { p_code: code });
+      missionBusy = false;
+      submit.disabled = false;
+      if (res.error) return show(friendlyError(res.error), "bad");
+      if (res.data === "success") return renderMission();
+      if (res.data === "wrong_location") show("이 보물은 당신의 보물이 아니에요. 문제를 다시 풀어 보세요!", "warn");
+      else show("코드를 다시 확인해 주세요.", "bad");
+    });
+
+    box.replaceChildren(
+      h("h2", { class: "screen-title" }, "🎁 비밀 미션: 보물을 찾아라!"),
+      h("div", { class: "card soft mission-intro" }, MISSION_INTRO.map((t) => h("p", {}, t))),
+      h("ul", { class: "bubbles" },
+        (data.puzzle || []).map((s) =>
+          h("li", { class: "bubble" },
+            h("div", { class: "who" }, h("span", { class: "face", "aria-hidden": "true" }, s.emoji), s.animal),
+            h("div", { class: "say" }, `“${s.text}”`)))),
+      form);
+  }
+
+  function renderMissionSuccess(box, data) {
+    const t = new Date(data.found_at);
+    const pad = (n) => String(n).padStart(2, "0");
+    box.replaceChildren(
+      h("div", { class: "success-screen" },
+        h("p", { class: "big" }, "🎉 보물 획득 성공!"),
+        h("div", { class: "sid-label" }, "학번 끝 두 자리"),
+        h("div", { class: "sid" }, data.sid_tail || (state.profile && state.profile.sid.slice(-2)) || "--"),
+        h("div", { class: "time" }, `획득 시각 ${t.getMonth() + 1}월 ${t.getDate()}일 ${pad(t.getHours())}:${pad(t.getMinutes())}`),
+        h("div", { class: "show-teacher" }, "이 화면을 선생님께 보여 주세요")));
+  }
+
   // ---------------------------------------------------------------- 실시간
   let channel = null;
   let refreshTimer = null;
@@ -501,7 +597,7 @@
     refreshTimer = setTimeout(refreshCurrent, 400);
   }
   function refreshCurrent() {
-    if (!$("#screen-gallery").hidden) renderGallery();
+    if (!$("#screen-gallery").hidden) renderGallery(false, true);
     else if (!$("#screen-detail").hidden && state.currentPostId && !liking) renderDetail(state.currentPostId, true);
   }
 
@@ -578,7 +674,18 @@
         saveDraft();
       })
     );
+    $("#ai-no").addEventListener("click", () => {
+      state.draft.aiUsed = false;
+      saveDraft();
+      renderAi();
+    });
+    $("#ai-yes").addEventListener("click", () => {
+      state.draft.aiUsed = true;
+      saveDraft();
+      renderAi();
+    });
     $("#submit-btn").addEventListener("click", onSubmit);
+    $("#mission-open").addEventListener("click", () => go("mission"));
 
     $$("[data-go]").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
     $$(".sort-bar [data-sort]").forEach((b) =>

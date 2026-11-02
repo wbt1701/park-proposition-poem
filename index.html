@@ -194,6 +194,13 @@
             <label class="check"><input type="checkbox" name="used" value="contrapositive" />대우</label>
           </div>
         </div>
+        <div class="field">
+          <span class="field-label">AI 사용 여부 <span class="hint">시를 쓰면서 AI의 도움을 받았나요?</span></span>
+          <div class="toggle-group small" role="group" aria-label="AI 사용 여부">
+            <button class="btn" type="button" id="ai-no" aria-pressed="false">사용하지 않았어요</button>
+            <button class="btn" type="button" id="ai-yes" aria-pressed="false">사용했어요</button>
+          </div>
+        </div>
       </div>
 
       <div class="error-box" id="step3-error" hidden></div>
@@ -207,6 +214,7 @@
     <section id="screen-gallery" hidden>
       <h2 class="screen-title">🌳 우리 반 명제 시</h2>
       <p class="lead"><span class="live-dot" id="live-dot"></span><span id="gallery-count"></span></p>
+      <button class="btn btn-accent btn-block mission-btn" type="button" id="mission-open" hidden>🎁 비밀 미션이 도착했어요!</button>
       <div class="sort-bar" role="group" aria-label="정렬">
         <button class="btn" type="button" data-sort="latest" aria-pressed="true">최신순</button>
         <button class="btn" type="button" data-sort="likes" aria-pressed="false">추천순</button>
@@ -224,6 +232,14 @@
         <button class="btn btn-small" type="button" data-go="gallery">← 목록으로</button>
       </div>
       <div id="detail-content"></div>
+    </section>
+
+    <!-- 보물찾기 비밀 미션 -->
+    <section id="screen-mission" hidden>
+      <div class="btn-row" style="margin:0 0 14px">
+        <button class="btn btn-small" type="button" data-go="gallery">← 시 목록으로</button>
+      </div>
+      <div id="mission-content"></div>
     </section>
   </main>
 
