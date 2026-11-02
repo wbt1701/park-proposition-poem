@@ -360,14 +360,17 @@ details.fold .fold-body { padding: 0 16px 16px; }
 .setup-warning { background: var(--danger-soft); border: 2px solid var(--danger); color: var(--danger); border-radius: 14px; padding: 14px; font-weight: 800; margin-bottom: 16px; }
 
 /* ---------- 교사 화면 ---------- */
-body.teacher main { max-width: 1200px; }
+body.teacher main { max-width: 1440px; }
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
 .toolbar .spacer { flex: 1; }
 .stats { font-weight: 800; color: var(--muted); }
 .table-wrap { overflow-x: auto; background: #fff; border: 2px solid var(--line); border-radius: 16px; }
-table.subs { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
-table.subs th, table.subs td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--green-soft); white-space: nowrap; }
-table.subs td.title-cell { white-space: normal; min-width: 180px; font-weight: 800; }
+table.subs { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+table.subs th, table.subs td { padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--green-soft); white-space: nowrap; }
+table.subs th { font-size: 0.8rem; }
+table.subs td.title-cell { white-space: normal; min-width: 120px; font-weight: 800; }
+table.subs .loc-select { min-height: 36px; font-size: 0.85rem; max-width: 130px; }
+table.subs .btn-small { min-height: 36px; padding: 0 10px; font-size: 0.85rem; }
 table.subs th { background: var(--green-soft); font-weight: 900; position: sticky; top: 0; }
 table.subs tbody tr { cursor: pointer; }
 table.subs tbody tr:hover { background: #fafcf3; }
