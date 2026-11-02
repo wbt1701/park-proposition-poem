@@ -18,6 +18,7 @@
     }
     // 학생 화면과 로그인 정보를 섞지 않도록 저장 키를 따로 씀
     sb = App.createClient("ppp-teacher-auth");
+    $("#login-email").value = window.APP_CONFIG.TEACHER_LOGIN_EMAIL || ""; // 비밀번호 관리자가 계정을 알아보도록
     bindEvents();
     const { data } = await sb.auth.getSession();
     if (data.session && !data.session.user.is_anonymous) await enter();
@@ -31,13 +32,17 @@
     err.hidden = true;
     btn.disabled = true;
     const { error } = await sb.auth.signInWithPassword({
-      email: $("#login-email").value.trim(),
+      email: (window.APP_CONFIG.TEACHER_LOGIN_EMAIL || "").trim(),
       password: $("#login-password").value,
     });
     btn.disabled = false;
     $("#login-password").value = "";
     if (error) {
-      err.textContent = /invalid/i.test(error.message) ? "이메일 또는 비밀번호가 맞지 않습니다." : error.message;
+      err.textContent = /invalid/i.test(error.message)
+        ? "비밀번호가 맞지 않습니다."
+        : /rate limit|too many/i.test(error.message)
+          ? "시도가 너무 많습니다. 잠시 후 다시 해 주세요."
+          : error.message;
       err.hidden = false;
       return;
     }

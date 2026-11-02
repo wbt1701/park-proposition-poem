@@ -22,12 +22,9 @@
     <section id="view-login" hidden>
       <form class="card login-card" id="login-form" novalidate>
         <h3>교사 로그인</h3>
+        <input type="hidden" id="login-email" autocomplete="username" />
         <div class="field">
-          <label class="field-label" for="login-email">이메일</label>
-          <input id="login-email" type="email" autocomplete="username" />
-        </div>
-        <div class="field">
-          <label class="field-label" for="login-password">비밀번호</label>
+          <label class="field-label" for="login-password">교사용 비밀번호</label>
           <input id="login-password" type="password" autocomplete="current-password" />
         </div>
         <div class="error-box" id="login-error" hidden></div>

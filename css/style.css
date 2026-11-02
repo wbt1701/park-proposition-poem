@@ -298,11 +298,12 @@ details.fold .fold-body { padding: 0 16px 16px; }
   border-radius: 14px;
   font-weight: 800;
   max-width: calc(100% - 32px);
-  transition: transform 0.25s ease;
+  transition: transform 0.25s ease, visibility 0.25s;
+  visibility: hidden;
   z-index: 50;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
-.toast.show { transform: translate(-50%, 0); }
+.toast.show { transform: translate(-50%, 0); visibility: visible; }
 .toast.error { background: var(--danger); }
 
 .setup-warning { background: var(--danger-soft); border: 2px solid var(--danger); color: var(--danger); border-radius: 14px; padding: 14px; font-weight: 800; margin-bottom: 16px; }

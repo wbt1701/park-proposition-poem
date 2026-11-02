@@ -51,21 +51,28 @@ supabase/sample-data.sql  테스트용 예시 글 4편
 | `post_list` (뷰) | 글 목록 + 좋아요 수 (정렬용) | 부르는 사람의 권한 그대로 |
 | `photos` (버킷) | 사진. 공개 읽기, 자기 폴더에만 업로드 | 누구나(주소를 아는 경우) |
 
-## 4. 교사 계정 등록
+## 4. 교사 계정 등록 (비밀번호 하나로 로그인)
+
+교사 화면은 **비밀번호만** 입력합니다. 안에서는 `config.js` 의 `TEACHER_LOGIN_EMAIL`
+(기본값 `park-poem-teacher@example.com`, 메일이 오지 않는 예약 주소) 계정으로 로그인합니다.
 
 1. **Authentication → Users → Add user → Create new user**
-   - 이메일·비밀번호 입력, **Auto Confirm User** 체크 → **Create user**
-2. **SQL Editor** 에서 아래를 실행 (이메일은 방금 만든 주소로)
+   - Email: `park-poem-teacher@example.com` (config.js 와 똑같이)
+   - Password: 교사용 비밀번호
+   - **Auto Confirm User** 체크 → **Create user**
+2. **SQL Editor** 에서 아래를 실행
 
 ```sql
 insert into public.teachers (user_id, email)
-select id, email from auth.users where email = 'teacher@example.com'
+select id, email from auth.users where email = 'park-poem-teacher@example.com'
 on conflict (user_id) do nothing;
 ```
 
 3. 확인: `select * from public.teachers;` 에 한 줄이 나오면 됩니다.
 
-> 교사 권한은 `teachers` 표에 있는 계정에만 생깁니다. 다른 사람이 이메일로 가입해도 교사 화면은 열리지 않습니다.
+> 교사 권한은 `teachers` 표에 있는 계정에만 생깁니다. 다른 사람이 가입해도 교사 화면은 열리지 않습니다.
+> 로그인 주소가 공개 코드에 있으므로 **비밀번호만이 유일한 보호막**입니다. 길고 추측하기 어렵게 정하고, 학생에게 보이지 않게 하세요.
+> 비밀번호를 바꾸려면 Authentication → Users → 해당 계정 → 비밀번호 변경(Reset/Update password).
 
 ## 5. config.js 채우기
 
