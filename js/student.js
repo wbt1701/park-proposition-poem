@@ -517,10 +517,11 @@
     btn.hidden = !!error || !data || data.status === "ineligible";
   }
 
+  // 한 줄 = 한 문단, 배열 안의 배열은 굵게
   const MISSION_INTRO = [
-    "보물의 위치를 알고 있는 공원 동물 다섯 마리가 한마디씩 했다.",
-    "이 중 정확히 두 마리는 거짓말을 하고, 나머지 세 마리는 진실을 말한다.",
-    "보물은 놀이터, 정자, 운동기구, 화장실 건물, 인라인스케이트장 중 한 곳에 있다.",
+    ["보물의 위치를 알고 있는 공원 동물 다섯 마리가 한마디씩 했다."],
+    ["이 중 ", ["딱 한 마리만 거짓말"], "을 하고, 나머지는 진실을 말한다."],
+    ["보물은 놀이터, 정자, 운동기구, 화장실 건물, 인라인스케이트장 중 한 곳에 있다."],
   ];
 
   let missionBusy = false;
@@ -573,7 +574,8 @@
 
     box.replaceChildren(
       h("h2", { class: "screen-title" }, "🎁 비밀 미션: 보물을 찾아라!"),
-      h("div", { class: "card soft mission-intro" }, MISSION_INTRO.map((t) => h("p", {}, t))),
+      h("div", { class: "card soft mission-intro" }, MISSION_INTRO.map((parts) =>
+        h("p", {}, parts.map((x) => (Array.isArray(x) ? h("b", { class: "em" }, x[0]) : x))))),
       h("ul", { class: "bubbles" },
         (data.puzzle || []).map((s) =>
           h("li", { class: "bubble" },

@@ -207,7 +207,11 @@
           l.is_closed ? "마감 풀기" : "마감"),
         h("details", {},
           h("summary", { class: "hint", style: "cursor:pointer;margin-top:10px" }, "문제 보기"),
-          h("ul", { class: "loc-puzzle" }, (l.puzzle || []).map((s) => h("li", {}, `${s.emoji} ${s.animal}: “${s.text}”`))))));
+          h("ul", { class: "loc-puzzle" }, (l.puzzle || []).map((s) => h("li", {}, `${s.emoji} ${s.animal}: “${s.text}”`)))),
+        // 풀이는 DB(교사 전용)에만 있음 — 공개 코드에 넣지 않음
+        h("details", {},
+          h("summary", { class: "hint", style: "cursor:pointer;margin-top:6px" }, "정답 풀이 보기"),
+          h("p", { class: "loc-solution" }, l.solution || "(풀이가 아직 없어요)"))));
     }
   }
 

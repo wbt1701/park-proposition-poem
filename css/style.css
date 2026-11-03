@@ -396,6 +396,8 @@ table.subs th.m { background: var(--yellow-soft); }
 .loc-code-row { display: flex; gap: 8px; margin-bottom: 10px; }
 .loc-code-row input { flex: 1; min-height: 48px; text-transform: uppercase; font-weight: 900; letter-spacing: 0.08em; }
 .loc-puzzle { margin: 10px 0 0; padding-left: 20px; font-size: 0.9rem; font-weight: 600; }
+.loc-solution { margin: 8px 0 0; padding: 10px 12px; background: var(--yellow-soft); border-radius: 10px; font-size: 0.9rem; font-weight: 700; line-height: 1.6; }
+.mission-intro .em { color: var(--danger); background: var(--yellow); padding: 0 4px; border-radius: 4px; }
 dialog.detail {
   width: min(760px, calc(100% - 24px));
   max-height: calc(100% - 24px);

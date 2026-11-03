@@ -29,8 +29,10 @@ create table if not exists public.locations (
   confirm_code text,                         -- 교사가 입력. 대소문자·공백 무시하고 비교
   is_closed    boolean not null default false,
   puzzle       jsonb not null default '[]',  -- [{ "animal": "다람쥐", "emoji": "🐿️", "text": "..." }, ...]
+  solution     text,                         -- 교사용 정답 풀이 (학생 RPC 는 돌려주지 않음)
   updated_at   timestamptz not null default now()
 );
+alter table public.locations add column if not exists solution text;
 create unique index if not exists locations_confirm_code_key
   on public.locations (upper(regexp_replace(confirm_code, '\s', '', 'g')))
   where confirm_code is not null;
