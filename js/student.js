@@ -113,8 +113,9 @@
     sb = App.createClient("ppp-student-auth");
     bindStaticEvents();
 
+    // 들어올 때마다 입장 화면부터. 로그인 세션은 남겨 두고, 학번·이름을 넣으면 이어서 진행
     const { data } = await sb.auth.getSession();
-    if (data.session) await afterLogin(data.session.user);
+    if (data.session) state.user = data.session.user;
     window.addEventListener("hashchange", route);
     route();
   }
@@ -163,15 +164,23 @@
     btn.textContent = "들어가는 중…";
     try {
       let user = state.user;
+      // 이 기기에서 다른 학생으로 들어오면 새 로그인으로 (이전 학생 기록은 서버에 그대로 남음)
+      const prev = user ? App.readJSON("ppp-profile-" + user.id) : null;
+      if (user && prev && (prev.sid !== sid || prev.name !== name)) {
+        await sb.auth.signOut();
+        user = state.user = null;
+      }
       if (!user) {
         const { data, error } = await sb.auth.signInAnonymously();
         if (error) throw error;
         user = data.user;
       }
-      const { error: rpcError } = await sb.rpc("register_author", { p_student_id: sid, p_name: name });
+      // 같은 학번·이름으로 다른 기기·브라우저에서 쓴 기록이 있으면 서버가 이 로그인으로 옮겨 줌
+      const { data: entered, error: rpcError } = await sb.rpc("enter_student", { p_student_id: sid, p_name: name });
       if (rpcError) throw rpcError;
       App.writeJSON("ppp-profile-" + user.id, { sid, name });
       await afterLogin(user);
+      if (entered && entered.restored) toast("전에 쓴 내용을 불러왔어요.");
       go(state.myPost ? "welcome" : "step1");
     } catch (error) {
       err.textContent = friendlyError(error);
@@ -194,14 +203,8 @@
     go("step1");
   }
 
-  async function switchStudent() {
-    const ok = confirm(
-      "다른 학번으로 새로 입장할까요?\n이 기기에서 지금 학생의 시는 더 이상 고칠 수 없게 됩니다. (이미 공유한 시는 그대로 남아요)"
-    );
-    if (!ok) return;
-    App.removeKey(draftKey());
-    App.removeKey(profileKey());
-    await sb.auth.signOut();
+  // 입장 화면으로. 같은 학번·이름으로 다시 들어오면 이 시를 이어서 볼 수 있음
+  function switchStudent() {
     location.hash = "";
     location.reload();
   }
@@ -557,10 +560,11 @@
     }
     if (data.status === "found") return renderMissionSuccess(box, data);
 
-    // 선생님이 장소를 마감해 문제가 바뀌었으면 크게 알림
-    const prevSig = App.readJSON(sigKey());
-    const moved = !!prevSig && prevSig !== sig;
-    App.writeJSON(sigKey(), sig);
+    // 같은 배정(assigned_at)인데 문제가 바뀌었으면 = 선생님이 장소를 마감·변경 → 크게 알림
+    // (리셋 뒤 새로 배정되면 assigned_at 이 달라서 알리지 않음)
+    const prev = App.readJSON(sigKey());
+    const moved = !!prev && prev.at === data.assigned_at && prev.sig !== sig;
+    App.writeJSON(sigKey(), { at: data.assigned_at, sig });
 
     const msg = h("div", { class: "mission-msg", hidden: true, "aria-live": "polite" });
     const input = h("input", {

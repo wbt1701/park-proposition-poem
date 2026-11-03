@@ -113,15 +113,23 @@
 
   // 반 = 학번 앞 3자리 (학생 갤러리도 같은 기준으로 반별로 나뉨)
   const classOf = (sid) => (sid || "").slice(0, 3);
-  const classLabel = (c) => (/^\d{3}$/.test(c) ? `${c[0]}학년 ${Number(c.slice(1))}반` : c);
+  const classLabel = (c) => (/^\d{3}$/.test(c) ? `${c[0]}-${Number(c.slice(1))}` : c); // 101 → 1-1
   const inClass = (sid) => !state.classFilter || classOf(sid) === state.classFilter;
 
+  // 반 탭: 처음엔 [전체]만, 그 반 학번(앞 3자리)으로 학생이 입장하면 탭이 생김
   function renderClassFilter(authors) {
-    const sel = $("#class-filter");
+    const box = $("#class-tabs");
     const classes = [...new Set(authors.map((a) => classOf(a.student_id)).filter(Boolean))].sort();
-    if (state.classFilter && !classes.includes(state.classFilter)) classes.push(state.classFilter);
-    sel.replaceChildren(h("option", { value: "" }, "전체 반"),
-      classes.map((c) => h("option", { value: c, selected: c === state.classFilter }, classLabel(c))));
+    if (state.classFilter && !classes.includes(state.classFilter)) state.classFilter = "";
+    const tab = (value, label) => h("button", {
+      type: "button", class: "class-tab", role: "tab", "aria-selected": String(state.classFilter === value),
+      onclick: () => {
+        state.classFilter = value;
+        renderClassFilter(authors);
+        render();
+      },
+    }, label);
+    box.replaceChildren(tab("", "전체"), classes.map((c) => tab(c, classLabel(c))));
   }
 
   function sorted() {
@@ -169,7 +177,7 @@
     if (!confirm(msg)) return render();
     const { error } = loc
       ? await sb.from("assignments").upsert(
-          { user_id: r.user_id, location_id: loc.id, found_at: null, assigned_at: new Date().toISOString() },
+          { user_id: r.user_id, location_id: loc.id, found_at: null, moved_at: new Date().toISOString() },
           { onConflict: "user_id" })
       : await sb.from("assignments").delete().eq("user_id", r.user_id);
     if (error) {
@@ -220,6 +228,20 @@
     const { error } = await sb.from("locations").update({ confirm_code: code, updated_at: new Date().toISOString() }).eq("id", l.id);
     if (error) return toast(error.code === "23505" ? "다른 장소와 같은 코드예요. 다르게 정해 주세요." : "저장 실패: " + error.message, true);
     toast(`${l.name} 확인 코드를 저장했습니다.`);
+    await load();
+  }
+
+  // 보물찾기 리셋: 확인 코드·배정·획득·상품 기록 삭제 + 장소 모두 열기 (student-reentry.sql 의 reset_mission)
+  async function resetMission() {
+    const n = state.assignments.length;
+    const typed = prompt(
+      `보물찾기를 리셋할까요? 되돌릴 수 없습니다.\n\n- 장소 5곳의 확인 코드 전부 삭제\n- 미션 배정 ${n}건(획득·상품 기록 포함) 삭제\n- 마감된 장소 모두 다시 열기\n(학생들의 시·사진·좋아요는 그대로)\n\n계속하려면 '리셋'이라고 입력하세요.`
+    );
+    if (typed === null) return;
+    if (typed.trim() !== "리셋") return toast("'리셋'이라고 입력해야 진행됩니다.", true);
+    const { data, error } = await sb.rpc("reset_mission");
+    if (error) return toast("리셋 실패: " + error.message, true);
+    toast(`리셋했습니다. 배정 ${data.assignments_removed}건을 지웠어요. 새 확인 코드를 입력하세요.`);
     await load();
   }
 
@@ -499,10 +521,7 @@
       })
     );
     $("#csv-btn").addEventListener("click", downloadCsv);
-    $("#class-filter").addEventListener("change", (e) => {
-      state.classFilter = e.target.value;
-      render();
-    });
+    $("#reset-btn").addEventListener("click", resetMission);
     $$("[data-tab]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
     $("#dlg-close").addEventListener("click", () => $("#detail").close());
     $("#detail").addEventListener("close", () => (state.openId = null));

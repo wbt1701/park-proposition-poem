@@ -108,6 +108,7 @@ begin
     'status',     case when v_asg.found_at is null then 'assigned' else 'found' end,
     'puzzle',     (select coalesce(l.puzzle, '[]'::jsonb) from public.locations l where l.id = v_asg.location_id),
     'found_at',   v_asg.found_at,
+    'assigned_at', v_asg.assigned_at,   -- 같은 배정 안에서 문제가 바뀌었는지(장소 변경) 학생 화면이 알아보는 데 씀
     'student_id', v_me.student_id,
     'name',       v_me.name);
 end;
