@@ -402,12 +402,7 @@ table.subs tbody tr.is-hidden { color: #8a948b; background: #f4f4f4; }
 table.subs th.m { background: var(--yellow-soft); }
 .loc-select { min-height: 40px; border-radius: 10px; border: 2px solid var(--line); padding: 0 8px; font-weight: 700; background: #fff; }
 .prize-check { width: 24px; height: 24px; accent-color: var(--green); cursor: pointer; }
-.class-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-.class-tab {
-  min-height: 44px; min-width: 72px; padding: 0 18px; border-radius: 999px; cursor: pointer;
-  border: 2px solid var(--green); background: #fff; color: var(--green-dark); font-weight: 900; font-size: 1rem;
-}
-.class-tab[aria-selected="true"] { background: var(--green); color: #fff; box-shadow: 0 0 0 3px var(--yellow); }
+.class-select { min-height: 44px; min-width: 110px; font-size: 1rem; font-weight: 900; border-color: var(--green); color: var(--green-dark); cursor: pointer; }
 .reset-box {
   display: flex; align-items: center; gap: 20px; margin-top: 24px; padding: 18px 22px;
   border: 2px dashed var(--danger); border-radius: 20px; background: var(--danger-soft);

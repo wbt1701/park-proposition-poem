@@ -116,20 +116,15 @@
   const classLabel = (c) => (/^\d{3}$/.test(c) ? `${c[0]}-${Number(c.slice(1))}` : c); // 101 → 1-1
   const inClass = (sid) => !state.classFilter || classOf(sid) === state.classFilter;
 
-  // 반 탭: 처음엔 [전체]만, 그 반 학번(앞 3자리)으로 학생이 입장하면 탭이 생김
+  // 반 고르기 드롭다운: [전체] + 그 반 학번(앞 3자리)으로 학생이 입장한 반만 (101 → 1-1)
   function renderClassFilter(authors) {
-    const box = $("#class-tabs");
+    const sel = $("#class-filter");
     const classes = [...new Set(authors.map((a) => classOf(a.student_id)).filter(Boolean))].sort();
     if (state.classFilter && !classes.includes(state.classFilter)) state.classFilter = "";
-    const tab = (value, label) => h("button", {
-      type: "button", class: "class-tab", role: "tab", "aria-selected": String(state.classFilter === value),
-      onclick: () => {
-        state.classFilter = value;
-        renderClassFilter(authors);
-        render();
-      },
-    }, label);
-    box.replaceChildren(tab("", "전체"), ...classes.map((c) => tab(c, classLabel(c))));
+    sel.replaceChildren(
+      h("option", { value: "" }, "전체"),
+      ...classes.map((c) => h("option", { value: c, selected: c === state.classFilter }, classLabel(c))));
+    sel.value = state.classFilter;
   }
 
   function sorted() {
@@ -522,6 +517,10 @@
     );
     $("#csv-btn").addEventListener("click", downloadCsv);
     $("#reset-btn").addEventListener("click", resetMission);
+    $("#class-filter").addEventListener("change", (e) => {
+      state.classFilter = e.target.value;
+      render();
+    });
     $$("[data-tab]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
     $("#dlg-close").addEventListener("click", () => $("#detail").close());
     $("#detail").addEventListener("close", () => (state.openId = null));
