@@ -129,7 +129,7 @@
         render();
       },
     }, label);
-    box.replaceChildren(tab("", "전체"), classes.map((c) => tab(c, classLabel(c))));
+    box.replaceChildren(tab("", "전체"), ...classes.map((c) => tab(c, classLabel(c))));
   }
 
   function sorted() {
