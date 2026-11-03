@@ -223,10 +223,21 @@
     await load();
   }
 
+  // 마감하면 서버 트리거가 아직 못 찾은 학생을 열린 장소로 옮김 (mission-relocate.sql)
   async function toggleClosed(l) {
+    const waiting = state.assignments.filter((a) => a.location_id === l.id && !a.found_at).length;
+    const othersOpen = state.locations.some((x) => x.id !== l.id && !x.is_closed);
+    if (!l.is_closed && waiting) {
+      const msg = othersOpen
+        ? `${l.name}을(를) 마감할까요?\n아직 못 찾은 학생 ${waiting}명이 열린 장소로 바뀌고, 학생 화면에 "장소가 변경되었습니다!"가 뜹니다.`
+        : `${l.name}을(를) 마감할까요?\n열린 장소가 없어서 아직 못 찾은 학생 ${waiting}명에게 "모두 마감되었습니다"가 표시됩니다.`;
+      if (!confirm(msg)) return;
+    }
     const { error } = await sb.from("locations").update({ is_closed: !l.is_closed, updated_at: new Date().toISOString() }).eq("id", l.id);
     if (error) return toast("변경 실패: " + error.message, true);
-    toast(l.is_closed ? `${l.name} 마감을 풀었습니다.` : `${l.name}을(를) 마감했습니다.`);
+    toast(l.is_closed
+      ? `${l.name} 마감을 풀었습니다.`
+      : `${l.name}을(를) 마감했습니다.` + (waiting && othersOpen ? ` 학생 ${waiting}명의 장소를 바꿨습니다.` : ""));
     await load();
   }
 

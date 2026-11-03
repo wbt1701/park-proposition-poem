@@ -525,21 +525,42 @@
   ];
 
   let missionBusy = false;
-  async function renderMission() {
-    showScreen("mission");
+  let missionShown = ""; // 지금 화면에 그린 상태+문제 (주기적 확인 때 바뀐 게 없으면 다시 그리지 않음)
+  const sigKey = () => "ppp-mission-sig-" + state.user.id;
+  const puzzleSig = (puzzle) => (puzzle || []).map((s) => s.text).join("|");
+
+  // silent = 주기적 확인(로딩 문구 없이, 바뀐 게 있을 때만 다시 그림)
+  async function renderMission(silent) {
     const box = $("#mission-content");
-    box.replaceChildren(h("p", { class: "empty-state" }, "미션을 불러오는 중…"));
+    if (!silent) {
+      showScreen("mission");
+      missionShown = "";
+      box.replaceChildren(h("p", { class: "empty-state" }, "미션을 불러오는 중…"));
+    }
     const { data, error } = await sb.rpc("get_or_assign_mission", { p_assign: true });
+    if (silent && $("#screen-mission").hidden) return;
     if (error) {
-      box.replaceChildren(h("div", { class: "error-box" }, "미션을 불러오지 못했어요: " + friendlyError(error)));
+      if (!silent) box.replaceChildren(h("div", { class: "error-box" }, "미션을 불러오지 못했어요: " + friendlyError(error)));
       return;
     }
     if (data.status === "ineligible") return go("gallery");
-    if (data.status === "no_open") {
-      box.replaceChildren(h("div", { class: "card soft empty-state" }, "지금은 진행 중인 보물이 없어요."));
+    const sig = puzzleSig(data.puzzle);
+    const shownKey = data.status + "#" + sig;
+    if (silent && shownKey === missionShown) return;
+    missionShown = shownKey;
+
+    if (data.status === "no_open" || data.status === "all_closed") {
+      box.replaceChildren(h("div", { class: "closed-screen" },
+        h("p", { class: "big" }, "🔒 보물찾기가 모두 마감되었습니다."),
+        h("p", {}, "선생님의 안내를 기다려 주세요.")));
       return;
     }
     if (data.status === "found") return renderMissionSuccess(box, data);
+
+    // 선생님이 장소를 마감해 문제가 바뀌었으면 크게 알림
+    const prevSig = App.readJSON(sigKey());
+    const moved = !!prevSig && prevSig !== sig;
+    App.writeJSON(sigKey(), sig);
 
     const msg = h("div", { class: "mission-msg", hidden: true, "aria-live": "polite" });
     const input = h("input", {
@@ -573,6 +594,9 @@
     });
 
     box.replaceChildren(
+      moved ? h("div", { class: "moved-banner", role: "alert" },
+        h("p", { class: "big" }, "📍 장소가 변경되었습니다!"),
+        h("p", {}, "원래 장소가 마감되어 새 문제가 나왔어요. 아래 문제를 다시 풀어 보세요.")) : null,
       h("h2", { class: "screen-title" }, "🎁 비밀 미션: 보물을 찾아라!"),
       h("div", { class: "card soft mission-intro" }, MISSION_INTRO.map((parts) =>
         h("p", {}, parts.map((x) => (Array.isArray(x) ? h("b", { class: "em" }, x[0]) : x))))),
@@ -604,6 +628,7 @@
     refreshTimer = setTimeout(refreshCurrent, 400);
   }
   function refreshCurrent() {
+    if (!$("#screen-mission").hidden && !missionBusy) return renderMission(true); // 장소 마감·변경 확인
     if (!$("#screen-gallery").hidden) renderGallery(false, true);
     else if (!$("#screen-detail").hidden && state.currentPostId && !liking) renderDetail(state.currentPostId, true);
   }
@@ -618,8 +643,8 @@
         const dot = $("#live-dot");
         if (dot) dot.classList.toggle("on", status === "SUBSCRIBED");
       });
-    // 실시간이 끊겼을 때를 대비해 30초마다, 그리고 화면에 다시 돌아왔을 때 새로고침
-    setInterval(refreshCurrent, 30000);
+    // 실시간이 끊겼을 때·장소 마감 확인을 위해 20초마다, 그리고 화면에 다시 돌아왔을 때 새로고침
+    setInterval(refreshCurrent, 20000);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") refreshCurrent();
     });
